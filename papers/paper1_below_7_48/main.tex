@@ -24,7 +24,7 @@
 
 \title{Breaking the $\frac{7}{48} n^3$ Barrier for Synchronizing Automata}
 
-\author{Anton Borisov\thanks{Mathematical discovery, proof construction, and complete machine verification in Lean~4 were conducted with AI assistance; see Section~\ref{sec:formalization} for full methodological disclosure and theorem-to-Lean correspondence.}}
+\author{Anton Borisov\thanks{ORCID: \href{https://orcid.org/0009-0004-4709-6705}{0009-0004-4709-6705}. Mathematical discovery, proof construction, and complete machine verification in Lean~4 were conducted with AI assistance; see Section~\ref{sec:formalization} for full methodological disclosure and theorem-to-Lean correspondence.}}
 
 \date{November 2026}
 
@@ -995,7 +995,7 @@ The mathematical results in this paper were discovered, proved, and completely f
 
 \subsection{Verification scope and axiom audit}
 
-The formalization sits inside a 31-file Lean~4 repository (28 mathematical modules totaling 39,978 lines, plus \texttt{Cerny.lean}, \texttt{Cerny/Verification.lean}, and \texttt{Cerny/StatementCheck.lean} for 40,840 total lines), publicly archived at \url{https://github.com/antonborisov571/cerny-lean}, that builds cleanly with \texttt{lake build} (exit code~0, zero warnings, zero \texttt{sorry}, zero \texttt{admit}, zero custom \texttt{axiom}, zero \texttt{set\_option} or \texttt{maxHeartbeats} overrides, and zero \texttt{native\_decide} shortcuts). The results in this paper reside in the core definitions and primary modules:
+The formalization sits inside a 31-file Lean~4 repository (28 mathematical modules totaling 39,978 lines, plus \texttt{Cerny.lean}, \texttt{Cerny/Verification.lean}, and \texttt{Cerny/StatementCheck.lean} for 40,840 total lines), publicly available at \url{https://github.com/antonborisov571/cerny-lean} and permanently archived on Zenodo (\href{https://doi.org/10.5281/zenodo.24463928}{\texttt{doi:10.5281/zenodo.24463928}}), that builds cleanly with \texttt{lake build} (exit code~0, zero warnings, zero \texttt{sorry}, zero \texttt{admit}, zero custom \texttt{axiom}, zero \texttt{set\_option} or \texttt{maxHeartbeats} overrides, and zero \texttt{native\_decide} shortcuts). The results in this paper reside in the core definitions and primary modules:
 \begin{itemize}[leftmargin=2em]
   \item \texttt{Cerny/Defs.lean} (442 lines): core definitions of \texttt{DFA}, \texttt{eval}, \texttt{image}, \texttt{preimage}, \texttt{IsSyncWord}, \texttt{IsSynchronizing}, \texttt{resetThreshold}, and \texttt{IsStronglyConnected}.
   \item \texttt{Cerny/Combinatorial.lean} and \texttt{AdditionalClasses.lean}: sink-SCC reduction, Pin--Frankl compression, and Szyku\l a's avoiding lemma.

@@ -1,5 +1,7 @@
 # cerny-lean: Machine-Verified Bounds on Reset Thresholds of Synchronizing Automata
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24463928.svg)](https://doi.org/10.5281/zenodo.24463928)
+
 A self-contained Lean 4 (`v4.36.0` / Mathlib `v4.36.0`) formalization establishing new general and structured upper bounds on the reset threshold $\operatorname{rt}(\mathcal{A})$ of synchronizing deterministic finite automata (DFAs), accompanied by three self-contained LaTeX preprints and a standalone statement-only verification audit.
 
 Every theorem stated in the three preprints is formally verified in Lean 4 with **zero `sorry`**, **zero custom axioms**, **zero `native_decide`**, and **zero `maxHeartbeats` overrides**, using only the standard Lean logical axioms (`propext`, `Classical.choice`, `Quot.sound`).
@@ -154,5 +156,6 @@ The repository comprises **31 Lean 4 files (40,840 lines)**: **28 mathematical m
 
 ## Author, Citation & License
 
-**Author:** Anton Borisov (`antonborisov571`).  
+**Author:** Anton Borisov ([ORCID 0009-0004-4709-6705](https://orcid.org/0009-0004-4709-6705), `@antonborisov571`).  
+**Permanent Archive (Zenodo):** [doi:10.5281/zenodo.24463928](https://doi.org/10.5281/zenodo.24463928) (concept DOI for all versions: [doi:10.5281/zenodo.24463927](https://doi.org/10.5281/zenodo.24463927)).  
 Licensed under the [Apache License 2.0](LICENSE). Citation metadata is provided in [`CITATION.cff`](CITATION.cff).

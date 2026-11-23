@@ -8,6 +8,15 @@ license: Apache-2.0
 authors:
   - family-names: "Borisov"
     given-names: "Anton"
+    orcid: "https://orcid.org/0009-0004-4709-6705"
+doi: "10.5281/zenodo.24463928"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.24463928"
+    description: "Zenodo archive for release v1.0.0"
+  - type: doi
+    value: "10.5281/zenodo.24463927"
+    description: "Zenodo concept DOI representing all versions"
 repository-code: "https://github.com/antonborisov571/cerny-lean"
 keywords:
   - cerny-conjecture
