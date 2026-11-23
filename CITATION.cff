@@ -1,0 +1,34 @@
+cff-version: 1.2.0
+message: "If you use this Lean 4 formalization or accompanying preprints in your research, please cite it as below."
+type: software
+title: "cerny-lean: Machine-Verified Bounds on Reset Thresholds of Synchronizing Automata"
+version: "1.0.0"
+date-released: "2026-11-23"
+license: Apache-2.0
+authors:
+  - family-names: "Borisov"
+    given-names: "Anton"
+repository-code: "https://github.com/antonborisov571/cerny-lean"
+keywords:
+  - cerny-conjecture
+  - synchronizing-automata
+  - reset-threshold
+  - lean4
+  - mathlib
+  - formal-verification
+  - combinatorics
+  - automata-theory
+abstract: >-
+  A self-contained Lean 4 (v4.36.0 / Mathlib v4.36.0) formalization establishing new
+  machine-verified upper bounds on reset thresholds of synchronizing deterministic finite
+  automata, including: (1) the first general asymptotic upper bound strictly below
+  (7/48) n^3 and an explicit-O(n^2) bound (24646/149769) n^3 + 50 n^2 beating Shitov (2019);
+  (2) the bound 2n^2 - 8n + 9 beating Zhu (FSTTCS 2024) on the full class of synchronizing
+  automata with a transitive permutation group and defect-1 letters, together with an
+  improved bound for completely reachable automata over Ferens and Szykula (2025) and
+  zero-error congruence-collapse bounds; (3) exact (n-1)^2 and quadratic bounds beyond
+  one-cluster automata (cluster-balanced, opposite-drift, cyclic-basin, partial-drain,
+  non-strongly-connected 2-cycle, almost-uniform, two-value stationary, and super-Eulerian
+  automata); and (4) complete formalizations of Zhu's July 2026 one-cluster theorem and
+  classical landmarks (Cerny 1964, Frankl-Pin 1982/83, Eppstein 1990, Dubuc 1998, Kari 2003,
+  and Shitov 2019). All proofs compile with zero sorry and depend only on standard Lean axioms.

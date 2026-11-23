@@ -1,0 +1,632 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\rt}{\operatorname{rt}}
+\newcommand{\ext}{\operatorname{ext}}
+\newcommand{\rk}{\operatorname{rk}}
+\newcommand{\defct}{\operatorname{def}}
+\newcommand{\SCC}{\operatorname{SCC}}
+\newcommand{\WCC}{\operatorname{WCC}}
+\newcommand{\Sink}{\operatorname{Sink}}
+\newcommand{\Source}{\operatorname{Source}}
+\newcommand{\Orb}{\operatorname{Orb}}
+\newcommand{\Sym}{\operatorname{Sym}}
+\newcommand{\spanQ}{\operatorname{span}_{\mathbb{Q}}}
+\newcommand{\one}{\mathbf{1}}
+\newcommand{\leff}{\ell_{\mathrm{eff}_1}}
+\newcommand{\lorb}{\ell_{\mathrm{orb}}}
+
+\title{Beating $2n^2 - 7n + 7$ for Transitive Defect-1 Automata\\
+and Sharpening Bounds for Completely Reachable\\
+and Imprimitive Automata}
+
+\author{Anton Borisov\thanks{Mathematical discovery, proof construction, and complete machine verification in Lean~4 were conducted with AI assistance; see Section~\ref{sec:formalization} for full methodological disclosure and theorem-to-Lean correspondence.}}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We establish five families of combinatorial upper bounds on reset thresholds and subset compression lengths for synchronizing deterministic finite automata (DFAs), all completely formalized and machine-verified in Lean~4.
+First, we strictly improve Zhu's bound (FSTTCS~2024) of $2n^2 - 7n + 7$ on the full class of synchronizing $n$-state DFAs whose bijective letters generate a transitive permutation group (primitive or imprimitive) and whose remaining letters have defect~$1$, proving $\rt(A) \le 2n^2 - 8n + 9$ for all $n \ge 4$ (and exact $(n-1)^2$ for $n \le 4$) via a self-contained, cone-free argument combining equipartition, dual potential coarsening, a $\mathbb{Q}$-subspace block-escape lemma, DAG-shift teleportation, and two-block shift-isolation.
+Second, for primitive defect-$1$ automata, we obtain the exact \v{C}ern\'y bound $\rt(A) \le (n-1)^2$ whenever a generator places the merged and omitted states at coprime distance on a common cycle, together with a Schreier-eccentricity bound $\rt(A) \le 1 + (n-2)(D + n - 2)$.
+Third, we prove that every transitive defect-$\le 1$ automaton with a single strongly connected Rystsov block (in particular, every primitive defect-$1$ automaton) is completely reachable, and we sharpen the Ferens--Szyku\l a (2025) bound for completely reachable automata by replacing the maximum orbit size $\lorb$ with the defect-$1$ effective orbit cap $\leff = \max_{O \in \Orb(\langle\Sigma_0\rangle)} |O \setminus M_1| + 1 \le \min(\lorb, n - |M_1| + 1)$; this strictly improves Ferens--Szyku\l a whenever $|M_1| \ge 2$ and $\lorb = n$, and breaks the $2n^2$ barrier to $(2 - \varepsilon)n^2 - n H_{n-2} + O(n)$ whenever $|M_1| \ge \varepsilon n$.
+Fourth, for synchronizing automata admitting nontrivial congruences, we establish zero-error cubic collapse bounds ($96\,\rt(A) \le 5n^3$ for fat congruences on strongly connected DFAs; $24\,\rt(A) \le n^3$ and an unconditional exact $(n-1)^2$ window $m \le 2k,\, k \le 2m^2$ for equipartition congruences without strong connectivity) and exact $(n-1)^2$ preservation for singleton-bearing congruences.
+Fifth, we give a five-line cycle-shift independence proof showing that on any DFA with an $n$-cycle and a non-injective letter, every subset $R$ of size $r > n/2$ compresses in at most $2(n - r) + 1 \le n$ steps, satisfying $r \cdot c(A, R) \le n(n - 1)$.
+\end{abstract}
+
+\section{Introduction}
+
+A complete deterministic finite (semi)automaton (DFA) $A = (Q, \Sigma, \delta)$ on $n = |Q|$ states is \emph{synchronizing} if there exists a word $w \in \Sigma^*$ mapping all states to a single state, i.e., $|Q \cdot w| = 1$. The minimum length of such a word is the \emph{reset threshold} $\rt(A)$. \v{C}ern\'y's conjecture~\cite{Cerny1964,Starke1966} asserts that every synchronizing $n$-state DFA satisfies
+\[
+  \rt(A) \le (n - 1)^2,
+\]
+a bound attained for all $n \ge 1$ by the \v{C}ern\'y automata $\mathcal{C}_n$. While the general conjecture remains open---with the classical Pin--Frankl bound $\rt(A) \le (n^3 - n)/6$~\cite{Frankl1982,Pin1983} improved successively by Szyku\l a~\cite{Szykula2018}, Shitov~\cite{Shitov2019}, and recent unrefereed preprints~\cite{Hong2026a,Hong2026b}---substantial progress has focused on structured classes defined by permutation actions, reachability, congruences, and cyclic letters; see Volkov's surveys~\cite{Volkov2022,Volkov2026} and Szyku\l a's open-problem survey~\cite{Szykula2026}.
+
+This paper advances four closely connected combinatorial frontiers tracked in~\cite{Volkov2026}:
+
+\begin{enumerate}[leftmargin=*,nosep]
+  \item \emph{Transitive permutation groups with defect-$1$ letters (Problem~D6 of~\cite{Volkov2026}).} Rystsov~\cite{Rystsov1995} initiated the study of synchronizing DFAs whose permutation letters act transitively or primitively alongside rank-$(n-1)$ letters. Recently, Zhu~\cite{Zhu2024} proved $\rt(A) \le 2n^2 - 7n + 7$ for every synchronizing DFA whose letters all have defect at most~$1$ and whose bijective letters generate a transitive (possibly imprimitive) permutation group, using a polyhedral-cone extension method. We strictly improve Zhu's bound across his exact full published class to $\rt(A) \le 2n^2 - 8n + 9$ for all $n \ge 4$ (Theorem~\ref{thm:transitive-beats-zhu}), eliminating polyhedral cones entirely in favor of elementary digraph coarsening and a $10$-line $\mathbb{Q}$-subspace escape lemma. For the primitive subclass, the same bound holds unconditionally without assuming synchronization or constraining non-bijective letters (Corollary~\ref{cor:primitive-beats-zhu}), and we further prove the exact \v{C}ern\'y bound $(n - 1)^2$ whenever a generator places the merged and omitted states at coprime distance on a common cycle, as well as a Schreier-eccentricity bound (Theorem~\ref{thm:primitive-coprime} and Proposition~\ref{prop:primitive-ecc}).
+
+  \item \emph{Completely reachable automata (Problem~D2 of~\cite{Volkov2026}).} Introduced by Bondar and Volkov~\cite{BV2016} and studied further in~\cite{BCV2023}, a DFA is \emph{completely reachable} if every nonempty subset of states is the image of $Q$ under some word. Ferens and Szyku\l a~\cite{FS2025} established the quadratic upper bound $\rt(A) \le 1 + (n - 2)(\lorb + n) - n H_{n - 2} \approx 2n^2 - n\ln n - 4n$, where $\lorb$ is the maximum orbit size of the permutation-letter group $\langle \Sigma_0 \rangle$. We prove that every transitive defect-$\le 1$ automaton with a single strongly connected Rystsov block (including every primitive defect-$1$ automaton) is completely reachable (Theorem~\ref{thm:d6-subset-cr}), showing that breaking the leading constant~$2$ for completely reachable automata strictly subsumes breaking it for primitive defect-$1$ automata. Furthermore, by tracking the set $M_1$ of states omitted by defect-$1$ letters, we sharpen the Ferens--Szyku\l a bound to $\rt(A) \le 1 + (n - 2)(\leff + n) - n H_{n - 2}$ where $\leff \le \min(\lorb, n - |M_1| + 1)$ (Theorem~\ref{thm:cr-eff-orbit}), yielding strict improvement whenever $|M_1| \ge 2$ and $\lorb = n$, and breaking the $2n^2$ barrier whenever $|M_1| \ge \varepsilon n$.
+
+  \item \emph{Imprimitive automata and congruence quotients.} When a synchronizing DFA admits a nontrivial congruence $\sim$ with $k$ classes of sizes $s_1, \dots, s_k$, lifting a synchronizing word of the quotient $A/\sim$ to $A$ does not reduce naively to a black-box induction on block size. By partitioning Frankl's skew-Bollob\'as avoiding chains across congruence classes (Lemma~\ref{lem:block-pf}), we prove exact $(n-1)^2$ preservation for singleton-bearing congruences on strongly connected DFAs, a zero-error cubic bound $96\,\rt(A) \le 5n^3$ ($n \ge 5$) for fat congruences ($s_t \ge 2$), and---without strong connectivity---$24\,\rt(A) \le n^3$ ($n \ge 6$) together with an unconditional exact $(n - 1)^2$ window ($m \le 2k$ and $k \le 2m^2$) for equipartition congruences of block size $m$ (Theorem~\ref{thm:congruence-collapse}).
+
+  \item \emph{Large-subset compression on cyclic automata.} For any subset $R \subseteq Q$ of size $r \ge 2$, Pin and Frankl~\cite{Frankl1982,Pin1983} proved that $R$ compresses in $c(A, R) \le \binom{n - r + 2}{2}$ steps, while the conjectural optimal scaling is $O(n^2/r)$, specifically $c(A, R) \le n(n - 1)/r$. Without assuming synchronization or strong connectivity, we give a five-line cycle-shift independence proof showing that whenever $b \in \Sigma$ acts as an $m$-cycle $C$ and $a \in \Sigma$ merges two distinct states of $C$, every subset $R$ with $2(n - r) + 1 \le m$ compresses in at most $2(n - r) + 1$ steps (Theorem~\ref{thm:cycle-shift}). For $m = n$, this proves $c(A, R) \le 2(n - r) + 1 \le n$ and $r \cdot c(A, R) \le n(n - 1)$ for all $r > n/2$, matching $\mathcal{C}_n$ to the exact integer.
+\end{enumerate}
+
+Every theorem, lemma, and corollary in Sections~\ref{sec:transitive}--\ref{sec:cycle-shift} has been formally mechanized and machine-checked in Lean~4 (v4.36.0) with Mathlib v4.36.0, with zero \texttt{sorry}s and relying strictly on the standard logical axioms. Section~\ref{sec:formalization} summarizes the verification methodology and provides a complete theorem-to-Lean correspondence table.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{6.2cm}@{}}
+\toprule
+Class / Hypothesis & Previous Best & Present Result \\
+\midrule
+Transitive $\langle \Sigma_0 \rangle$, defect $\le 1$, sync ($n \ge 4$) & $2n^2 - 7n + 7$~\cite{Zhu2024} & $2n^2 - 8n + 9$ (Thm.~\ref{thm:transitive-beats-zhu}) \\
+Primitive $\langle \Sigma_0 \rangle$, defect-$1$, coprime $b$-cycle & $2n^2 - 7n + 7$~\cite{Zhu2024} & $(n - 1)^2$ exact (Thm.~\ref{thm:primitive-coprime}) \\
+Completely reachable, $|M_1| \ge 2$ ($\lorb = n$) & $1 + 2n(n - 2) - n H_{n-2}$~\cite{FS2025} & $1 + (n - 2)(\leff + n) - n H_{n-2}$ (Thm.~\ref{thm:cr-eff-orbit}) \\
+Completely reachable, $|M_1| \ge \varepsilon n$ & $2n^2 - n\ln n - 4n$~\cite{FS2025} & $(2 - \varepsilon)n^2 - n H_{n-2} + O(n)$ (Cor.~\ref{cor:cr-breaks-2n2}) \\
+SC sync, fat congruence ($s_t \ge 2$, $n \ge 5$) & $(n^3 - n)/6$~\cite{Pin1983} & $5n^3 / 96$, zero error (Thm.~\ref{thm:congruence-collapse}(b)) \\
+Sync, equipartition $n = km$ ($k, m \ge 2$) & $(n^3 - n)/6$~\cite{Pin1983} & $n^3 / 24$ ($n \ge 6$); $(n - 1)^2$ if $m \le 2k, k \le 2m^2$ \\
+$n$-cycle + non-bijection, $|R| = r > n/2$ & $\binom{n - r + 2}{2}$~\cite{Pin1983} & $c(A, R) \le 2(n - r) + 1 \le n$ (Cor.~\ref{cor:ncycle-half}) \\
+\bottomrule
+\end{tabular}
+\caption{Summary of the main Lean-verified bounds proved in this paper.}
+\label{tab:summary}
+\end{table}
+
+\section{Preliminaries and Notation}\label{sec:prelim}
+
+A \emph{deterministic finite automaton} (DFA) is a triple $A = (Q, \Sigma, \delta)$ where $Q$ is a finite nonempty state set of cardinality $n = |Q|$, $\Sigma$ is an input alphabet, and $\delta : Q \times \Sigma \to Q$ is the transition function. We write the right action of letters and words $w \in \Sigma^*$ as $q \cdot a = \delta(q, a)$, $q \cdot \varepsilon = q$, and $q \cdot (ua) = (q \cdot u) \cdot a$. For $S \subseteq Q$ and $w \in \Sigma^*$, the forward image and backward preimage are
+\[
+  S \cdot w := \{q \cdot w : q \in S\}, \qquad S w^{-1} := \{q \in Q : q \cdot w \in S\}.
+\]
+The \emph{rank} of $w$ is $\rk(w) := |Q \cdot w|$ and its \emph{defect} is $\defct(w) := n - \rk(w)$. A word $w$ is \emph{synchronizing} (or a \emph{reset word}) if $|Q \cdot w| = 1$, and $A$ is \emph{synchronizing} if such a word exists; the \emph{reset threshold} $\rt(A)$ is the minimum length of a synchronizing word. For a subset $R \subseteq Q$ with $|R| \ge 2$, the \emph{compression length} $c(A, R)$ is $\min\{|w| : |R \cdot w| < |R|\}$ (when finite). For a nonempty proper subset $S \subsetneq Q$, the \emph{extension length} is $\ext(S) := \min\{|w| : |S w^{-1}| > |S|\}$.
+
+A DFA $A$ is \emph{strongly connected} (SC) if for all $p, q \in Q$ there exists $w \in \Sigma^*$ with $p \cdot w = q$. A letter $b \in \Sigma$ is a \emph{permutation} (or \emph{bijective}) letter if $q \mapsto q \cdot b$ is bijective; we write $\Sigma_0 \subseteq \Sigma$ for a designated set (or the full set) of bijective letters. A letter $a \in \Sigma$ has \emph{defect~$1$} (rank $n - 1$) if $|Q \cdot a| + 1 = n$; equivalently, there exist unique distinct states $z_a, m_a \in Q$ (the \emph{merged target} and \emph{omitted state}) such that $|z_a a^{-1}| = 2$, $|m_a a^{-1}| = 0$, and $|q a^{-1}| = 1$ for all $q \in Q \setminus \{z_a, m_a\}$. Consequently, for any subset $T \subseteq Q$,
+\begin{equation}\label{eq:defect1-preimage}
+  |T a^{-1}| = |T| + \one_{z_a \in T} - \one_{m_a \in T}.
+\end{equation}
+
+A set $S_0 \subseteq \Sigma$ of bijective letters acts \emph{transitively} on $Q$ if for all $p, q \in Q$ there exists $g \in S_0^*$ with $p \cdot g = q$. It acts \emph{primitively} on $Q$ if it is transitive and every $S_0$-invariant equivalence relation on $Q$ is trivial (either equality or the universal relation $Q \times Q$). For a general DFA $A$, a \emph{congruence} is an equivalence relation $\sim$ on $Q$ satisfying $p \sim q \implies p \cdot a \sim q \cdot a$ for all $a \in \Sigma$; its classes $B_1, \dots, B_k$ form the state set of the quotient DFA $A/\sim$.
+
+For any directed graph $\Gamma = (Q, E)$, we denote by $\SCC(\Gamma)$ and $\WCC(\Gamma)$ its partitions into strongly connected components and weakly connected components, respectively. A component $V \in \SCC(\Gamma)$ is a \emph{sink} (resp.\ \emph{source}) SCC if no arc of $E$ leaves $V$ (resp.\ enters $V$); we write $\Sink(\Gamma)$ and $\Source(\Gamma)$ for the sets of sink and source SCCs.
+
+\section{Beating $2n^2 - 7n + 7$ for Full Transitive Defect-1 Automata}\label{sec:transitive}
+
+Let $A = (Q, \Sigma, \delta)$ be a synchronizing DFA on $n = |Q|$ states admitting a cover $\Sigma = S_0 \cup S_1$ such that:
+\begin{enumerate}[label=(\roman*),leftmargin=*,nosep]
+  \item every $b \in S_0$ is bijective on $Q$;
+  \item the monoid $S_0^*$ (equivalently the permutation group $G = \langle S_0 \rangle$) acts transitively on $Q$;
+  \item every $a \in S_1$ has defect~$1$, i.e., $|Q \cdot a| + 1 = n$.
+\end{enumerate}
+This is precisely the full class studied by Zhu~\cite{Zhu2024}: $G$ may be imprimitive, and $S_1$ may contain arbitrarily many defect-$1$ letters. Note that since $A$ is synchronizing and $n \ge 2$, $S_1$ is nonempty.
+
+For each $k \ge 0$, define the directed edge sets on $Q$:
+\[
+  E_0 := \{(z_a, m_a) : a \in S_1\}, \quad
+  E_k := \{(u \cdot g,\, v \cdot g) : (u, v) \in E_0,\; g \in S_0^*,\; |g| \le k\}, \quad
+  E_\infty := \bigcup_{k \ge 0} E_k.
+\]
+Write $\Gamma_k := (Q, E_k)$, $\Gamma_\infty := (Q, E_\infty)$, $\Pi_k := \SCC(\Gamma_k)$, $c(k) := |\Pi_k|$, $\Omega_k := \WCC(\Gamma_k)$, $w(k) := |\Omega_k|$, and $d := |\SCC(\Gamma_\infty)|$. Following~\cite{Zhu2024}, define the dual sink and source potentials
+\[
+  f(k) := c(k) + |\Sink(\Gamma_k)|, \qquad g(k) := c(k) + |\Source(\Gamma_k)|,
+\]
+and let $m := \min\{i \ge 0 : \Pi_i = \Pi_\infty\}$ (equivalently, $c(m) = d$). Since $z_a \neq m_a$ for every $a \in S_1$ and every $b \in S_0$ is bijective, each $\Gamma_k$ is loopless.
+
+\begin{lemma}[Equipartition and symmetry of $\Gamma_\infty$]\label{lem:equipartition}
+The reachability relation $R_\infty := E_\infty^*$ is an equivalence relation on $Q$, so $\Pi_\infty = \Omega_\infty$. All $d = |\Pi_\infty|$ equivalence classes $B_1, \dots, B_d$ have the same size $s_0 = n / d \ge 2$; in particular, $d \mid n$ and $1 \le d \le n / 2$.
+\end{lemma}
+
+\begin{proof}
+Since $E_\infty$ is invariant under the action of $S_0$, so is $R_\infty$. For $p \in Q$, let $R_p := \{y \in Q : (p, y) \in R_\infty\}$. If $y \in R_p$, then $R_y \subseteq R_p$ by transitivity of $R_\infty$. By transitivity of $S_0^*$, choose $g \in S_0^*$ with $p \cdot g = y$. Then $R_p \cdot g \subseteq R_y$, and since $g$ is bijective, $|R_p| = |R_p \cdot g| \le |R_y| \le |R_p|$. Hence $R_y = R_p$, so $p \in R_y$ and $(y, p) \in R_\infty$. Thus $R_\infty$ is symmetric, giving $\Pi_\infty = \Omega_\infty$. By transitivity of $S_0^*$, $G$ acts transitively on the blocks $B_1, \dots, B_d$, so every block has the same cardinality $s_0 = n / d$. Because $E_0 \neq \emptyset$ and every $(z_a, m_a) \in E_0$ has $z_a \neq m_a$ in the same block, $s_0 \ge 2$ and $1 \le d \le n / 2$.
+\end{proof}
+
+\begin{lemma}[Weak-component and dual-potential coarsening]\label{lem:coarsening}
+Assume hypotheses~\textup{(i)--(iii)} with $S_1 \neq \emptyset$.
+\begin{enumerate}[label=\textup{(\arabic*)},leftmargin=*,nosep]
+  \item For every $k \ge 0$, $w(k) > d$ implies $w(k + 1) < w(k)$. Consequently, $w(n - d - 1) = d$, so every block $B_j \in \Pi_\infty$ is weakly connected in $\Gamma_{n - d - 1}$.
+  \item For every $k \ge 0$, both $c(k)$, $|\Sink(\Gamma_k)|$, and $|\Source(\Gamma_k)|$ are non-increasing in $k$. Whenever $c(k) > d$ (equivalently $f(k) > 2d$ or $g(k) > 2d$),
+  \[
+    f(k + 1) \le f(k) - 1 \qquad\text{and}\qquad g(k + 1) \le g(k) - 1.
+  \]
+  Hence for every $k \ge 0$, if $f(k) \le 2d + t$ or $g(k) \le 2d + t$, then $c(k + t) = d$; equivalently,
+  \[
+    m \le k + \min\bigl(f(k),\, g(k)\bigr) - 2d.
+  \]
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) Clearly $w(k + 1) \le w(k)$ and $w(k) \ge w(\infty) = d$. If $w(k + 1) = w(k)$, then $\Omega_{k+1} = \Omega_k$. Since every $b \in S_0$ maps edges of $E_k$ to edges of $E_{k+1}$, $\Omega_k$ is $S_0$-invariant and contains $E_0$, hence contains $E_\infty$, forcing $\Omega_k = \Omega_\infty$ and $w(k) = d$. Since $E_0 \neq \emptyset$ is irreflexive, $w(0) \le n - 1$, so induction gives $w(n - d - 1) = d$.
+
+(2) Each sink SCC $V' \in \Sink(\Gamma_{k+1})$ is a union of SCCs of $\Gamma_k$; choosing a maximal element $V$ of the induced condensation DAG inside $V'$ gives a distinct $V \in \Sink(\Gamma_k)$, so $|\Sink(\Gamma_{k+1})| \le |\Sink(\Gamma_k)|$, and similarly for $\Source$. Suppose $f(k + 1) = f(k)$. Then $c(k + 1) = c(k)$ (so $\Pi_{k+1} = \Pi_k$ is $S_0$-invariant) and $|\Sink(\Gamma_{k+1})| = |\Sink(\Gamma_k)|$, which forces $\Sink(\Gamma_{k+1}) = \Sink(\Gamma_k)$ since every sink of $\Gamma_{k+1}$ is a sink of $\Gamma_k$. For any $b \in S_0$ and any non-sink $X \in \Pi_k \setminus \Sink(\Gamma_k)$, shifting an outgoing arc of $X$ by $b$ produces an outgoing arc of $X \cdot b$ in $\Gamma_{k+1}$, so $X \cdot b \notin \Sink(\Gamma_k)$. As $b$ permutes the finite set $\Pi_k$, it also permutes $\Sink(\Gamma_k)$, making $U_{\mathrm{sink}} := \bigcup_{V \in \Sink(\Gamma_k)} V$ nonempty and $S_0$-invariant. Transitivity of $S_0^*$ forces $U_{\mathrm{sink}} = Q$, so $\Sink(\Gamma_k) = \Pi_k$ and no arc of $E_k$ leaves its SCC. In particular, every arc of $E_0 \subseteq E_k$ stays inside a single block of the $S_0$-invariant partition $\Pi_k$, hence every arc of $E_\infty$ does as well, forcing $\Pi_k = \Pi_\infty$ and $c(k) = d$. Reversing all arcs establishes the symmetric strict decrease of $g(k)$. Induction on $t$ yields $c(k + t) = d$.
+\end{proof}
+
+To lift $c(m) = d$ to subset extensibility without polyhedral cones, we replace Zhu's cone framework~\cite{Zhu2024} by a $10$-line $\mathbb{Q}$-vector space argument.
+
+\begin{lemma}[Zero-cone $\mathbb{Q}$-subspace block-escape extensibility]\label{lem:block-escape}
+Let $A$ be synchronizing and satisfy~\textup{(i)--(iii)}. Suppose $c(m) = d$, so that every block $B_1, \dots, B_d \in \Pi_\infty$ is strongly connected in $\Gamma_m$. Then for every nonempty proper subset $S \subsetneq Q$, there exists a word $w \in \Sigma^*$ with
+\[
+  |w| \le m + d \qquad\text{and}\qquad |S w^{-1}| = |S| + 1.
+\]
+\end{lemma}
+
+\begin{proof}
+Let $H_{\mathrm{blk}} \subseteq \mathbb{Q}^Q$ be the subspace of functions constant on every block $B_j \in \Pi_\infty$; clearly $\dim_{\mathbb{Q}} H_{\mathrm{blk}} = d$, and an indicator vector $\one_T \in \mathbb{Q}^Q$ lies in $H_{\mathrm{blk}}$ if and only if $T$ is a union of blocks of $\Pi_\infty$. For any word $u \in \Sigma^*$, the pullback map $(P_u v)(q) := v(q \cdot u)$ is linear on $\mathbb{Q}^Q$ and satisfies $P_u(\one_T) = \one_{T u^{-1}}$.
+
+\emph{Step 1: Escape from $H_{\mathrm{blk}}$ exists.} Suppose for contradiction that $S u^{-1}$ is a union of blocks for every $u \in \Sigma^*$. We show by induction on $|u|$ that $|S u^{-1}| = |S|$ for all $u \in \Sigma^*$. For $u = \varepsilon$ this is trivial. If $u = a u'$ with $a \in \Sigma$ and $T := S (u')^{-1}$ is a union of blocks of size $|S|$, then $T a^{-1} = S u^{-1}$ is also a union of blocks. Since every block has size $s_0 \ge 2$ (Lemma~\ref{lem:equipartition}), both $|T|$ and $|T a^{-1}|$ are multiples of $s_0$, yet by~\eqref{eq:defect1-preimage} they differ by at most~$1$ (or $0$ if $a \in S_0$), forcing $|T a^{-1}| = |T| = |S|$. Taking $u$ to be a synchronizing word gives $|S u^{-1}| \in \{0, n\}$, contradicting $0 < |S| < n$.
+
+\emph{Step 2: Short escape of length at most $d - 1$.} If $S$ is not a union of blocks, take $u = \varepsilon$ ($|u| = 0 \le d - 1$). Otherwise, define for $t \ge 0$ the subspaces
+\[
+  W_t := \spanQ\{\one_Q\} + \spanQ\{\one_{S u^{-1}} : u \in \Sigma^*,\; |u| \le t\}.
+\]
+Since $\emptyset \subsetneq S \subsetneq Q$, $\one_Q$ and $\one_S$ are linearly independent, so $\dim_{\mathbb{Q}} W_0 = 2$. If $\one_{S u^{-1}} \in H_{\mathrm{blk}}$ for all $|u| \le d - 1$, then $2 = \dim_{\mathbb{Q}} W_0 \le \dim_{\mathbb{Q}} W_1 \le \dots \le \dim_{\mathbb{Q}} W_{d-1} \le \dim_{\mathbb{Q}} H_{\mathrm{blk}} = d$, forcing $W_j = W_{j+1}$ for some $j \le d - 2$. Then $W_j \subseteq H_{\mathrm{blk}}$ is closed under $P_a$ for every $a \in \Sigma$, so $\one_{S u^{-1}} \in W_j \subseteq H_{\mathrm{blk}}$ for all $u \in \Sigma^*$, contradicting Step~1.
+
+\emph{Step 3: Size preservation and extension.} Choose a shortest word $u$ ($|u| \le d - 1$) such that $S' := S u^{-1}$ is not a union of blocks. If $u = \varepsilon$, then $|S'| = |S|$. If $u = a u'$, then by minimality of $u$, every suffix of $u'$ yields a union of blocks, so by the induction in Step~1, $T := S (u')^{-1}$ is a union of blocks with $|T| = |S|$. If $a \in S_0$, then $|S'| = |T a^{-1}| = |T| = |S|$. If $a \in S_1$, then $(z_a, m_a) \in E_0 \subseteq E_\infty$ lies inside a single block of $\Pi_\infty$, so $z_a \in T \iff m_a \in T$; hence~\eqref{eq:defect1-preimage} gives $|S'| = |T a^{-1}| = |T| = |S|$.
+
+Finally, because $S'$ is not a union of blocks, some block $B_j$ meets both $S'$ and $Q \setminus S'$. Since $B_j$ is strongly connected in $\Gamma_m$, there exists an arc $(z_a \cdot g,\, m_a \cdot g) \in E_m$ ($a \in S_1$, $g \in S_0^*$, $|g| \le m$) with $z_a \cdot g \in S'$ and $m_a \cdot g \notin S'$. Setting $w := a g u$, we have $|w| \le 1 + m + (d - 1) = m + d$, and because $g$ is bijective,~\eqref{eq:defect1-preimage} gives
+\[
+  |S w^{-1}| = |(S' g^{-1}) a^{-1}| = |S' g^{-1}| + 1 = |S'| + 1 = |S| + 1. \qedhere
+\]
+\end{proof}
+
+We now break Zhu's bottleneck $m \le 2n - 4$ in the $d = 1$ regime down to $m \le 2n - 5$ for all $n \ge 5$, using two elementary mechanisms: \emph{DAG-shift teleportation} and \emph{two-block shift-isolation}.
+
+\begin{lemma}[DAG-shift teleportation]\label{lem:dag-teleport}
+Let $S_0 \subseteq \Sigma$ be a set of bijective letters generating a transitive permutation group on $Q$ ($n \ge 2$), and let $z_0 \neq m_0 \in Q$. Define the single-arc digraphs $\widetilde{\Gamma}_k := (Q, \{(z_0 \cdot g,\, m_0 \cdot g) : g \in S_0^*,\, |g| \le k\})$ with SCC count $\widetilde{c}(k)$. If $\widetilde{\Gamma}_{n - 2}$ is acyclic (i.e., $\widetilde{c}(n - 2) = n$), then $\widetilde{\Gamma}_{n - 2 + \lfloor n / 2 \rfloor}$ is strongly connected:
+\[
+  \widetilde{c}(n - 2) = n \implies \widetilde{c}\bigl(n - 2 + \lfloor n / 2 \rfloor\bigr) = 1.
+\]
+\end{lemma}
+
+\begin{proof}
+Assume $\widetilde{c}(n - 2) = n$, so reachability $\preceq$ in $\widetilde{\Gamma}_{n-2}$ is a partial order on $Q$. Let $Z_k := \{z_0 \cdot g : g \in S_0^*,\, |g| \le k\}$. By transitivity, $|Z_0| = 1$ and $|Z_{k+1}| > |Z_k|$ whenever $Z_k \neq Q$, so $|Z_{n - 2}| \ge n - 1$. If $Z_{n - 2} = Q$, then every state has out-degree $\ge 1$ in the loopless digraph $\widetilde{\Gamma}_{n - 2}$, contradicting the existence of a maximal element under $\preceq$. Thus $Z_{n - 2}$ omits a unique state $q_{\mathrm{snk}} \in Q$, which is the unique maximal element of $(Q, \preceq)$; hence $x \preceq q_{\mathrm{snk}}$ for every $x \in Q$. Symmetrically, $\{m_0 \cdot g : |g| \le n - 2\}$ omits a unique state $q_{\mathrm{src}} \in Q$, which is the unique minimal element of $(Q, \preceq)$, so $q_{\mathrm{src}} \preceq x$ for every $x \in Q$.
+
+Put $t := \lfloor n / 2 \rfloor$. For any $q \in Q$, the radius-$t$ ball $B_t(q) := \{q \cdot g : g \in S_0^*,\, |g| \le t\}$ has size at least $\min(t + 1, n) = \lfloor n / 2 \rfloor + 1$ by transitivity. Since $|B_t(q_{\mathrm{src}})| + |B_t(q_{\mathrm{snk}})| \ge 2\lfloor n / 2 \rfloor + 2 > n$, there exists $u_0 \in B_t(q_{\mathrm{src}}) \cap B_t(q_{\mathrm{snk}})$, say $u_0 = q_{\mathrm{src}} \cdot g_1 = q_{\mathrm{snk}} \cdot g_2$ with $|g_1|, |g_2| \le t$. Now let $p, q \in Q$ be arbitrary. Because $g_1, g_2$ are bijective, pick $x_2, x_1 \in Q$ with $x_2 \cdot g_2 = p$ and $x_1 \cdot g_1 = q$. Shifting the $\widetilde{\Gamma}_{n - 2}$-paths $x_2 \preceq q_{\mathrm{snk}}$ by $g_2$ and $q_{\mathrm{src}} \preceq x_1$ by $g_1$ yields paths $p \to^* u_0$ and $u_0 \to^* q$ in $\widetilde{\Gamma}_{n - 2 + t}$. Hence $\widetilde{\Gamma}_{n - 2 + t}$ is strongly connected.
+\end{proof}
+
+\begin{lemma}[Full-transitive $d = 1$ collapse: $m \le 2n - 5$]\label{lem:d1-bound}
+Assume~\textup{(i)--(iii)} with $S_1 \neq \emptyset$, $d = |\Pi_\infty| = 1$, and $n \ge 5$. Then $\Gamma_{2n - 5}$ is strongly connected, i.e., $c(2n - 5) = 1$.
+\end{lemma}
+
+\begin{proof}
+Consider the four exhaustive cases for $c(n - 2) \le n$:
+
+\emph{Case 1: $c(n - 2) = n$.} Pick any $a_0 \in S_1$ with $(z_0, m_0) \in E_0$. The single-arc subgraph $\widetilde{\Gamma}_{n - 2} \subseteq \Gamma_{n - 2}$ is also acyclic, so Lemma~\ref{lem:dag-teleport} gives $\widetilde{c}(n - 2 + \lfloor n / 2 \rfloor) = 1$, hence $c(n - 2 + \lfloor n / 2 \rfloor) = 1$. For $n \ge 5$, $n - 2 + \lfloor n / 2 \rfloor \le 2n - 5$, so $c(2n - 5) = 1$.
+
+\emph{Case 2: $c(n - 1) \le n - 3$.} If $c(n - 1) = 1$, then $c(2n - 5) = 1$ since $n - 1 \le 2n - 5$. Otherwise $2 \le c(n - 1) \le n - 3$. By Lemma~\ref{lem:coarsening}(1), $w(n - 1) \le w(n - 2) = 1$, so $\Gamma_{n - 1}$ is weakly connected and every source SCC is disjoint from every sink SCC. Let $a := |\Source(\Gamma_{n - 1})| \ge 1$ and $s := |\Sink(\Gamma_{n - 1})| \ge 1$. By transitivity of $S_0^*$, every state is reachable from $z_{a_0}$ and from $m_{a_0}$ in length $\le n - 1$, so every vertex of the loopless digraph $\Gamma_{n - 1}$ has out-degree $\ge 1$ and in-degree $\ge 1$. Consequently, every source SCC and every sink SCC of $\Gamma_{n - 1}$ has size at least~$2$, giving
+\[
+  n \ge 2a + 2s + \bigl(c(n - 1) - a - s\bigr) = c(n - 1) + a + s \implies f(n - 1) = c(n - 1) + s \le n - a.
+\]
+If $a \ge 2$, then $f(n - 1) \le n - 2$; if $a = 1$, then $g(n - 1) = c(n - 1) + 1 \le (n - 3) + 1 = n - 2$. In both subcases, $\min(f(n - 1), g(n - 1)) \le n - 2 = 2(1) + (n - 4)$, so Lemma~\ref{lem:coarsening}(2) yields $c((n - 1) + (n - 4)) = c(2n - 5) = 1$.
+
+\emph{Case 3: $c(n - 2) = n - 2$.} If $c(n - 1) \le n - 3$, Case~2 applies. Otherwise $c(n - 1) = n - 2 = c(n - 2)$, so $\Pi_{n - 1} = \Pi_{n - 2}$ is an $S_0$-invariant partition of $Q$ into $n - 2$ blocks. By transitivity, all blocks have equal size, forcing $(n - 2) \mid n$, hence $(n - 2) \mid 2$, contradicting $n \ge 5$.
+
+\emph{Case 4: $c(n - 2) = n - 1$ (Two-block shift-isolation).} As in Case~2, every vertex of $\Gamma_{n - 1}$ has out-degree $\ge 1$ and in-degree $\ge 1$; if $c(n - 1) \ge 2$, then $\Gamma_{n - 1}$ has at least one source SCC $U$ and one distinct sink SCC $V$, each of size $\ge 2$, so $c(n - 1) \le n - 2$. If $c(n - 1) = 1$ or $c(n - 1) \le n - 3$, Case~2 applies. Suppose for contradiction that $c(n - 1) = n - 2$.
+\begin{itemize}[leftmargin=*,nosep]
+  \item Since $c(n - 2) = n - 1$, $\Pi_{n - 2}$ has a unique block $W$ of size~$2$ and $n - 2$ singleton blocks.
+  \item Since $c(n - 1) = n - 2 \ge 3$, $\Pi_{n - 1}$ has two distinct blocks $U \in \Source(\Gamma_{n - 1})$ and $V \in \Sink(\Gamma_{n - 1})$ of size~$\ge 2$; counting $\sum_{X \in \Pi_{n - 1}} (|X| - 1) = 2$ forces $|U| = |V| = 2$, with all other $n - 4$ blocks singletons.
+  \item Since $E_{n - 2} \subseteq E_{n - 1}$, $W$ lies inside a single SCC of $\Gamma_{n - 1}$ of size $\ge 2$, so $W = X_0$ for some $X_0 \in \{U, V\}$; let $X_1$ be the other element of $\{U, V\}$.
+  \item For every $b \in S_0$, $W \cdot b$ is strongly connected in $\Gamma_{n - 1}$ of size~$2$, so $W \cdot b \in \{U, V\}$. Because $0 < |W| = 2 < n$ and $S_0^*$ is transitive, $W$ is not $S_0$-invariant; hence some $b^* \in S_0$ satisfies $W \cdot b^* = X_1$.
+  \item Let $(x, y) \in E_{n - 2}$ be arbitrary. If $X_0 = V$ (sink) and $X_1 = U$ (source): whenever $x \in W = V$, maximality of $V$ in $\Gamma_{n - 1}$ forces $y \in V = W$; whenever $y \in W$, we have $(x \cdot b^*, y \cdot b^*) \in E_{n - 1}$ with $y \cdot b^* \in W \cdot b^* = U$, so minimality of $U$ forces $x \cdot b^* \in U = W \cdot b^*$, whence $x \in W$ by injectivity of $b^*$. The symmetric case $X_0 = U, X_1 = V$ likewise gives $x \in W \iff y \in W$.
+\end{itemize}
+Thus no arc of $E_{n - 2}$ crosses the boundary of the nonempty proper set $W$, contradicting $w(n - 2) = 1$ (Lemma~\ref{lem:coarsening}(1)). Therefore $c(n - 1) \le n - 3$, and Case~2 concludes $c(2n - 5) = 1$.
+\end{proof}
+
+\begin{theorem}[Beating Zhu~\cite{Zhu2024} on the full transitive defect-$\le 1$ class]\label{thm:transitive-beats-zhu}
+Let $A = (Q, \Sigma, \delta)$ be a synchronizing DFA on $n = |Q|$ states with $\Sigma = S_0 \cup S_1$, where every $b \in S_0$ is bijective, $S_0^*$ acts transitively on $Q$, and every $a \in S_1$ has defect~$1$. Then:
+\begin{enumerate}[label=\textup{(\arabic*)},leftmargin=*,nosep]
+  \item For every $n \ge 4$,
+  \[
+    \rt(A) \le 2n^2 - 8n + 9 < 2n^2 - 7n + 7,
+  \]
+  strictly improving Zhu's bound~\cite{Zhu2024} by $n - 2$ for all $n \ge 4$.
+  \item For every $n \le 4$, $\rt(A) \le (n - 1)^2$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+Part~(2) follows from the exact small-$n$ \v{C}ern\'y bound for $n \le 4$ (which also gives $\rt(A) \le 9 = 2(4)^2 - 8(4) + 9$ at $n = 4$). Assume now that $n \ge 5$, and let $d = |\Pi_\infty| \mid n$ with $1 \le d \le n / 2$ (Lemma~\ref{lem:equipartition}). We show that every nonempty proper subset $S \subsetneq Q$ extends in length at most $2n - 4$:
+\begin{itemize}[leftmargin=*,nosep]
+  \item \emph{Regime $d = 1$:} Lemma~\ref{lem:d1-bound} gives $m \le 2n - 5$, so Lemma~\ref{lem:block-escape} gives $\ext(S) \le m + 1 \le 2n - 4$.
+  \item \emph{Regime $2 \le d \le n / 3$:} Each block $B_j \in \Pi_\infty$ has size $s_0 = n / d \ge 3$ and is weakly connected in $\Gamma_{n - 1}$ by Lemma~\ref{lem:coarsening}(1) (as $n - d - 1 \le n - 1$). Inside each block $B_j$ in $\Gamma_{n - 1}$, let $c_j, a_j, s_j$ be the numbers of SCCs, source SCCs, and sink SCCs. If $c_j = 1$, then $c_j + s_j = 2 \le s_0 - 1$. If $c_j \ge 2$, then sources and sinks are disjoint and each has size $\ge 2$ (as every vertex has in-degree and out-degree $\ge 1$ in $\Gamma_{n - 1}$), so $s_0 \ge 2a_j + 2s_j + (c_j - a_j - s_j) = c_j + s_j + a_j \ge c_j + s_j + 1$, giving $c_j + s_j \le s_0 - 1$. Summing over $j = 1, \dots, d$ yields $f(n - 1) \le n - d$. By Lemma~\ref{lem:coarsening}(2), $m \le (n - 1) + (n - d) - 2d = 2n - 3d - 1$, and Lemma~\ref{lem:block-escape} gives $\ext(S) \le m + d \le 2n - 2d - 1 \le 2n - 5 < 2n - 4$.
+  \item \emph{Regime $d = n / 2$ ($n \ge 6$ even):} Each block has size~$2$, so $|E_\infty| \le 2(n / 2) = n$. Since $|E_0| \ge 1$ and $E_k \neq E_\infty$ implies $|E_{k+1}| > |E_k|$, we have $E_{n - 1} = E_\infty$ and $m \le n - 1$. Lemma~\ref{lem:block-escape} gives $\ext(S) \le m + d \le (n - 1) + n / 2 = \frac{3}{2}n - 1 \le 2n - 4$ for all even $n \ge 6$.
+\end{itemize}
+Pick any $a_0 \in S_1$ and start with $S_1 := z_{a_0} a_0^{-1}$ ($|S_1| = 2$, cost~$1$). Iterating the extension bound $n - 2$ times yields a synchronizing word of length at most $1 + (n - 2)(2n - 4) = 2n^2 - 8n + 9 < 2n^2 - 7n + 7$.
+\end{proof}
+
+\begin{corollary}[Primitive defect-$1$ specialization without synchronization hypothesis]\label{cor:primitive-beats-zhu}
+Let $A = (Q, \Sigma, \delta)$ be any DFA on $n \ge 4$ states containing a set $S_0 \subseteq \Sigma$ of bijective letters acting primitively on $Q$ and a single defect-$1$ letter $a \in \Sigma$ (with arbitrary remaining letters in $\Sigma$). Then $A$ is automatically synchronizing and satisfies
+\[
+  \rt(A) \le 2n^2 - 8n + 9.
+\]
+\end{corollary}
+
+\begin{proof}
+Consider the subautomaton $A' = (Q, S_0 \cup \{a\}, \delta)$ and its single-arc digraphs $\widetilde{\Gamma}_k$. Primitivity of $S_0$ forces $d = 1$ on $\widetilde{\Gamma}_\infty$. For $n \ge 5$, Lemma~\ref{lem:d1-bound} yields $\widetilde{c}(2n - 5) = 1$, so every nonempty proper $S \subsetneq Q$ extends in length $\le 2n - 4$ using $S_0 \cup \{a\}$, proving synchronization and $\rt(A) \le 1 + (n - 2)(2n - 4) = 2n^2 - 8n + 9$. For $n = 4$, Proposition~\ref{prop:primitive-ecc} (below) implies $A$ is synchronizing, and the exact $n \le 4$ bound yields $\rt(A) \le 9 = 2(4)^2 - 8(4) + 9$.
+\end{proof}
+
+\section{Exact $(n - 1)^2$ and Eccentricity Bounds for Primitive Defect-1 Automata}\label{sec:primitive}
+
+When $S_0 \subseteq \Sigma$ acts \emph{primitively} on $Q$ and $a \in \Sigma$ is a defect-$1$ letter with merged target $z_0$ and omitted state $m_0$, every nontrivial $S_0$-invariant equivalence relation is the universal relation. On the single-arc digraphs $\widetilde{\Gamma}_k = (Q, \{(z_0 \cdot g, m_0 \cdot g) : g \in S_0^*, |g| \le k\})$ with SCC count $\widetilde{c}(k)$, if $1 < \widetilde{c}(k) < n$ then $\widetilde{c}(k + 1) < \widetilde{c}(k)$ (else $\SCC(\widetilde{\Gamma}_k)$ would be a nontrivial $S_0$-invariant partition). Induction therefore yields the \emph{primitive SCC-coarsening lemma}:
+\begin{equation}\label{eq:prim-coarsen}
+  \widetilde{c}(k) < n \implies \widetilde{c}\bigl(k + \widetilde{c}(k) - 1\bigr) = 1,
+\end{equation}
+and whenever $\widetilde{c}(L) = 1$, every nonempty proper subset $S \subsetneq Q$ extends in length $\le L + 1$, giving $\rt(A) \le 1 + (n - 2)(L + 1)$.
+
+\begin{theorem}[Same-cycle and coprime-cycle exact \v{C}ern\'y bound]\label{thm:primitive-coprime}
+Let $A = (Q, \Sigma, \delta)$ be a DFA on $n = |Q|$ states with a primitive permutation letter set $S_0 \subseteq \Sigma$ and a defect-$1$ letter $a \in \Sigma$ having merged target $z_0$ and omitted state $m_0$. Suppose there exist $b \in S_0$ and integers $r \ge 2$ and $1 \le d < r$ such that $z_0$ lies on a $b$-cycle of minimal period $r$ and $z_0 \cdot b^d = m_0$. Let $g := \gcd(d, r)$. Then $A$ is synchronizing and
+\[
+  \rt(A) \le 1 + (n - 2)(n + g - 1).
+\]
+In particular, whenever $\gcd(d, r) = 1$, $A$ satisfies the exact \v{C}ern\'y conjecture:
+\[
+  \rt(A) \le 1 + (n - 2)n = (n - 1)^2.
+\]
+\end{theorem}
+
+\begin{proof}
+Let $C = \{z_0, z_0 \cdot b, \dots, z_0 \cdot b^{r - 1}\}$ be the $b$-cycle of $z_0$ ($|C| = r \ge 2$). For every $0 \le j < r$, the word $b^j \in S_0^*$ has length $\le r - 1$ and contributes the arc $(z_0 \cdot b^j,\, z_0 \cdot b^{(j + d) \bmod r}) \in E(\widetilde{\Gamma}_{r - 1})$. These $r$ arcs partition $C$ into $g = \gcd(d, r)$ directed cycles of length $r / g \ge 2$. Thus all $r$ vertices of $C$ collapse into at most $g$ SCCs of $\widetilde{\Gamma}_{r - 1}$, while the remaining $n - r$ vertices contribute at most $n - r$ SCCs:
+\[
+  \widetilde{c}(r - 1) \le (n - r) + g < n
+\]
+(as $g \le d < r$). Applying~\eqref{eq:prim-coarsen} cancels $\pm r$ identically:
+\[
+  (r - 1) + \widetilde{c}(r - 1) - 1 \le (r - 1) + (n - r + g) - 1 = n + g - 2.
+\]
+Hence $\widetilde{c}(n + g - 2) = 1$, yielding a synchronizing word of length at most $1 + (n - 2)(n + g - 1)$. When $g = 1$, $1 + (n - 2)n = (n - 1)^2$.
+\end{proof}
+
+\begin{proposition}[Schreier-eccentricity bound]\label{prop:primitive-ecc}
+Let $A = (Q, \Sigma, \delta)$ be a DFA on $n \ge 3$ states with a primitive permutation letter set $S_0 \subseteq \Sigma$ and a defect-$1$ letter $a \in \Sigma$ having merged target $z_0$ and omitted state $m_0$. Suppose every $q \in Q$ is reachable from both $z_0$ and $m_0$ via words in $S_0^*$ of length at most $D$. Then $A$ is synchronizing and
+\[
+  \rt(A) \le 1 + (n - 2)(D + n - 2).
+\]
+In particular, taking $D = n - 1$ recovers $\rt(A) \le 2n^2 - 7n + 7$ without linear algebra, while logarithmic-diameter Schreier graphs ($D = O(\log n)$) satisfy $\rt(A) \le n^2 + O(n \log n)$.
+\end{proposition}
+
+\begin{proof}
+Every vertex of the loopless digraph $\widetilde{\Gamma}_D$ has out-degree $\ge 1$ and in-degree $\ge 1$. If $\widetilde{c}(D) = 1$, then $\widetilde{c}(D + n - 3) = 1$ since $n \ge 3$. Otherwise $\widetilde{c}(D) \ge 2$, and the condensation DAG of $\widetilde{\Gamma}_D$ has a maximal (sink) SCC $V$ and a distinct minimal (source) SCC $U \neq V$, each of size at least~$2$, giving $\widetilde{c}(D) \le n - 2 < n$. By~\eqref{eq:prim-coarsen}, $\widetilde{c}(D + n - 3) = 1$, whence $\rt(A) \le 1 + (n - 2)(D + n - 2)$.
+\end{proof}
+
+\section{Completely Reachable Automata: Inclusion and Sharpening Ferens--Szyku\l a}\label{sec:cr}
+
+A DFA $A = (Q, \Sigma, \delta)$ is \emph{completely reachable}~\cite{BV2016} if for every nonempty subset $S \subseteq Q$ there exists $w \in \Sigma^*$ with $Q \cdot w = S$. In particular, every completely reachable DFA on a nonempty state space is synchronizing. Let $\Sigma_0 := \{b \in \Sigma : q \mapsto q \cdot b \text{ is bijective}\}$ be the set of all permutation letters, let $\Orb(\langle \Sigma_0 \rangle)$ denote the partition of $Q$ into orbits under $\Sigma_0^*$, and write $\lorb := \max_{O \in \Orb(\langle \Sigma_0 \rangle)} |O|$. Define the \emph{defect-$1$ omitted-state set} and the \emph{effective orbit cap}:
+\[
+  M_1 := \{q \in Q : \exists a \in \Sigma,\; Q \cdot a = Q \setminus \{q\}\}, \qquad
+  \leff := \max_{O \in \Orb(\langle \Sigma_0 \rangle)} |O \setminus M_1| + 1,
+\]
+and let $H_m := \sum_{j = 1}^m \frac{1}{j}$ be the $m$-th harmonic number.
+
+\begin{theorem}[Transitive $d = 1$ defect-$\le 1$ automata are completely reachable]\label{thm:d6-subset-cr}
+Let $A = (Q, \Sigma, \delta)$ satisfy hypotheses~\textup{(i)--(iii)} of Section~\ref{sec:transitive} with $d = |\Pi_\infty| = 1$. Then $A$ is completely reachable. In particular, every DFA with a primitive permutation letter set $S_0 \subseteq \Sigma$ and a defect-$1$ letter $a \in \Sigma$ is completely reachable.
+\end{theorem}
+
+\begin{proof}
+We show by induction on $n - |S|$ that every nonempty $S \subseteq Q$ is reachable from $Q$. The base case $S = Q$ is witnessed by $\varepsilon$. For $1 \le |S| < n$, since $d = 1$ means $\Gamma_\infty$ is strongly connected, there exists an arc $(z_a \cdot g,\, m_a \cdot g) \in E_\infty$ ($a \in S_1$, $g \in S_0^*$) with $z_a \cdot g \in S$ and $m_a \cdot g \notin S$. Put $S' := S g^{-1}$ and $T := S' a^{-1}$. Because $z_a \in S'$ and $m_a \notin S'$, every state of $S'$ has at least one preimage under $a$ (and $z_a$ has two), so $|T| = |S| + 1$ and $T \cdot (ag) = S' \cdot g = S$. By the induction hypothesis, $Q \cdot u = T$ for some $u \in \Sigma^*$, whence $Q \cdot (uag) = S$. When $S_0$ is primitive, $d = 1$ holds automatically on the single-arc digraphs of $a$, so the same induction applies without assuming synchronization or constraining other letters.
+\end{proof}
+
+Theorem~\ref{thm:d6-subset-cr} reveals a sharp structural link between Problems~D2 and~D6 of~\cite{Volkov2026}: any proof improving the leading constant~$2$ in the quadratic reset bound for completely reachable automata must simultaneously improve it for primitive defect-$1$ automata.
+
+\begin{lemma}[Every permutation orbit meets $M_1$]\label{lem:orbit-meets-m1}
+Let $A = (Q, \Sigma, \delta)$ be completely reachable ($n \ge 2$). Then every orbit $O \in \Orb(\langle \Sigma_0 \rangle)$ satisfies $O \cap M_1 \neq \emptyset$. Consequently,
+\[
+  \leff \le \min\bigl(\lorb,\, n - |M_1| + 1\bigr).
+\]
+\end{lemma}
+
+\begin{proof}
+Fix $q \in O$. Since $n \ge 2$, $Q \setminus \{q\}$ is nonempty, so complete reachability gives a word $w \in \Sigma^*$ with $Q \cdot w = Q \setminus \{q\}$. Because $w$ is not bijective, decompose $w = u a g$ where $g \in \Sigma_0^*$ is the maximal bijective suffix and $a \notin \Sigma_0$. Then
+\[
+  n - 1 = |Q \cdot w| = |Q \cdot (ua)| \le |Q \cdot a| \le n - 1,
+\]
+forcing $|Q \cdot a| = n - 1$, so $a$ has defect~$1$ and omits a unique state $q' \in M_1$. Since $Q \cdot (ua) \subseteq Q \cdot a$ have the same size $n - 1$, $Q \cdot (ua) = Q \cdot a = Q \setminus \{q'\}$, and applying the bijection $g$ yields $Q \setminus \{q\} = Q \cdot w = Q \setminus \{q' \cdot g\}$. Thus $q' \cdot g = q$, placing $q' \in O \cap M_1$.
+
+Because $|O \cap M_1| \ge 1$ for every orbit $O$, we have $|O \setminus M_1| + 1 \le |O| \le \lorb$, and simultaneously $O \setminus M_1 \subseteq Q \setminus M_1$ gives $|O \setminus M_1| + 1 \le n - |M_1| + 1$.
+\end{proof}
+
+Following Ferens and Szyku\l a~\cite{FS2025}, we say that a word $w \in \Sigma^*$ \emph{properly extends} a subset $S \subseteq Q$ if $(S w^{-1}) \cdot w = S$ and $|S w^{-1}| > |S|$ (equivalently, every $s \in S$ has $\ge 1$ preimage under $w$ and some $s \in S$ has $\ge 2$). Proper extension is essential for the union-predecessor property: if $w$ properly extends $T_1 \cup T_2$, then $w$ properly extends at least one of $T_1$ or $T_2$.
+
+\begin{remark}[Sharpness of $M_1$ vs.\ all omitted states]\label{rem:m1-sharp}
+One cannot replace $M_1$ by the larger set $M := \bigcup_{a \in \Sigma} (Q \setminus Q \cdot a)$ of all omitted states in the union-predecessor framework. On $Q = \{0, 1, 2, 3\}$ with $T_1 = \{0, 1\}$, $T_2 = \{1, 2\}$, $T_1 \cup T_2 = Q \setminus \{3\}$, and a defect-$2$ letter $a$ sending $0, 1 \mapsto 0$ and $2, 3 \mapsto 2$, we have $3 \in M$ and $(T_1 \cup T_2) a^{-1} = Q$, yet $|T_1 a^{-1}| = |\{0, 1\}| = |T_1|$ and $|T_2 a^{-1}| = |\{2, 3\}| = |T_2|$, so $a$ extends neither $T_1$ nor $T_2$. Restricting to $M_1$ guarantees $Q \setminus \{q\} \subseteq Q \cdot a$, so $a$ \emph{properly} extends $Q \setminus \{q\}$ if and only if $q \in M_1$.
+\end{remark}
+
+\begin{theorem}[Effective-orbit bounds for completely reachable automata]\label{thm:cr-eff-orbit}
+Let $A = (Q, \Sigma, \delta)$ be a completely reachable DFA on $n \ge 2$ states.
+\begin{enumerate}[label=\textup{(\arabic*)},leftmargin=*,nosep]
+  \item For every nonempty subset $S \subseteq Q$, there exists $w \in \Sigma^*$ with $Q \cdot w = S$ and
+  \[
+    |w| \le (n - |S|)(\leff + n) - n H_{n - |S|}.
+  \]
+  \item The reset threshold satisfies
+  \[
+    \rt(A) \le 1 + (n - 2)(\leff + n) - n H_{n - 2} \le 1 + (n - 2)(\lorb + n) - n H_{n - 2}.
+  \]
+  \item If $n \ge 3$, $\lorb = n$, and $|M_1| \ge 2$, then $\rt(A)$ strictly improves the Ferens--Szyku\l a bound~\cite{FS2025} by at least $(|M_1| - 1)(n - 2)$:
+  \[
+    \rt(A) \le 1 + (n - 2)(2n) - n H_{n - 2} - (|M_1| - 1)(n - 2).
+  \]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+We refine the singleton count in Ferens and Szyku\l a's complement-intersection merge algorithm~\cite{FS2025}. For any nonempty proper $S \subsetneq Q$, run a breadth-first search over equal-size proper-preimage ancestors $T$ of $S$ (recording each step letter), resetting the search to $T \cup T'$ whenever a newly encountered $T$ overlaps a previously processed $T'$ with $T \subsetneq T \cup T' \subsetneq Q$, and terminating as soon as a proper extension is found. Walking backward through the recorded trace reconstructs a properly extending word $w$ whose letters correspond injectively to a family $\mathcal{X}$ of processed non-merging sets whose complements $\overline{\mathcal{X}} = \{Q \setminus T : T \in \mathcal{X}\}$ form a laminar (trivially intersecting) family of subsets of sizes in $[1, n - |S|]$.
+
+Split $\overline{\mathcal{X}}$ into non-singletons ($2 \le |\overline{T}| \le k := n - |S|$) and singletons ($|\overline{T}| = 1$). By the laminar family bound~\cite{FS2025}, the non-singleton subfamily has cardinality at most $n - \lceil n / k \rceil \le n - n / k$. For the singleton level, every processed $(n - 1)$-subset $Q \setminus \{q\} \in \mathcal{X}$ transitions to other $(n - 1)$-subsets only via bijective letters in $\Sigma_0$, hence all processed singletons lie in a single orbit $O \in \Orb(\langle \Sigma_0 \rangle)$. Moreover, by Remark~\ref{rem:m1-sharp}, the search terminates in one letter as soon as it reaches any $q \in O \cap M_1$ (which is nonempty by Lemma~\ref{lem:orbit-meets-m1}). Therefore the singleton level contributes at most $|O \setminus M_1| + 1 \le \leff$ letters to $w$.
+
+Combining both levels yields a properly extending word $w$ for $S$ of length at most $\leff + n - n / (n - |S|)$. Starting from $S$ and repeatedly replacing $S$ by $S w^{-1}$ (which strictly increases $|S|$ while preserving $(S w^{-1}) \cdot w = S$) sums over $k = 1, \dots, n - |S|$ to give~(1). For~(2), Lemma~\ref{lem:orbit-meets-m1} ensures $M_1 \neq \emptyset$, so picking any defect-$1$ letter $a$ gives a reachable $(n - 1)$-set (and dually a size-$2$ preimage $S_2 = z_a a^{-1}$ of cost~$1$); properly extending $S_2$ to $Q$ sums over $k = 1, \dots, n - 2$ to give~(2), with $\leff \le \lorb$ by Lemma~\ref{lem:orbit-meets-m1}. For~(3), when $\lorb = n$, there is a single orbit $O = Q$, so $\leff = n - |M_1| + 1 = \lorb - (|M_1| - 1)$, yielding the exact saving $(|M_1| - 1)(n - 2) > 0$.
+\end{proof}
+
+\begin{corollary}[Breaking $2n^2$ for linear $|M_1|$]\label{cor:cr-breaks-2n2}
+Let $A$ be completely reachable on $n \ge 2$ states and let $\varepsilon \in \mathbb{Q}$ satisfy $\varepsilon n \le |M_1|$. Then
+\[
+  \rt(A) \le 1 + (n - 2)\bigl((2 - \varepsilon)n + 1\bigr) - n H_{n - 2}.
+\]
+\end{corollary}
+
+\begin{proof}
+Immediate from Theorem~\ref{thm:cr-eff-orbit}(2) and $\leff \le n - |M_1| + 1 \le (1 - \varepsilon)n + 1$ (Lemma~\ref{lem:orbit-meets-m1}).
+\end{proof}
+
+\section{Zero-Error Congruence Collapse and Exact \v{C}ern\'y Preservation}\label{sec:congruence}
+
+Let $A = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA admitting a congruence $\sim$ with $k$ equivalence classes $B_1, \dots, B_k$ of sizes $s_1, \dots, s_k \ge 1$ ($\sum_{t=1}^k s_t = n$). We first sharpen Pin--Frankl compression for subsets contained inside a single congruence class by partitioning Frankl's skew-Bollob\'as chains across classes.
+
+\begin{lemma}[Block-partitioned Pin--Frankl compression]\label{lem:block-pf}
+Let $A$ be a synchronizing DFA with congruence classes $B_1, \dots, B_k$ of sizes $s_1, \dots, s_k$. For any subset $S \subseteq B_{c_0}$ of size $r = |S| \ge 2$ contained inside a single class, there exists a word $w \in \Sigma^*$ with $|S \cdot w| < r$ and
+\[
+  |w| \le \sum_{t \,:\, s_t \ge r} \binom{s_t - r + 2}{2}.
+\]
+\end{lemma}
+
+\begin{proof}
+Let $w = a_1 \cdots a_\ell$ be a shortest word with $|S \cdot w| < r$ (which exists since $A$ is synchronizing), and choose distinct $x_0, y_0 \in S$ with $x_0 \cdot w = y_0 \cdot w$. For $0 \le i < \ell$, write $u_i = a_1 \cdots a_i$, $v_i = a_{i+1} \cdots a_\ell$, $S_i = S \cdot u_i$, and $P_i = \{x_0 \cdot u_i, y_0 \cdot u_i\}$. By minimality of $\ell$, $|S_i| = r$ and $|P_i| = 2$ for every $i < \ell$.
+
+Because $\sim$ is a congruence and $S \subseteq B_{c_0}$, each $S_i$ lies inside a single class $B_{c(i)}$ (so $s_{c(i)} \ge r$). Partition $\{0, \dots, \ell - 1\} = \bigsqcup_{t=1}^k I_t$ where $I_t := \{i < \ell : c(i) = t\}$. For each $t$ with $s_t \ge r$ and each $i \in I_t$, set $A_i := B_t \setminus S_i$ ($|A_i| = s_t - r$) and $P_i \subseteq S_i \subseteq B_t$ ($|P_i| = 2$). Then $A_i \cap P_i = \emptyset$, and for all $i < j$ in $I_t$ we must have $A_i \cap P_j \neq \emptyset$: otherwise $P_j \subseteq S_i$, so $u_i v_j$ (of length $i + \ell - j < \ell$) would merge two elements of $S$, contradicting minimality of $\ell$. By Frankl's skew-Bollob\'as theorem~\cite{Frankl1982}, $|I_t| \le \binom{s_t - r + 2}{2}$. Summing over $t$ yields the result.
+\end{proof}
+
+\begin{theorem}[Congruence-decomposed collapse and exact \v{C}ern\'y preservation]\label{thm:congruence-collapse}
+Let $A = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA admitting a congruence $\sim$ with $k$ classes $B_1, \dots, B_k$ of sizes $s_1, \dots, s_k$.
+\begin{enumerate}[label=\textup{(\alph*)},leftmargin=*,nosep]
+  \item \emph{Singleton-class reduction:} If $A$ is strongly connected and some class $B_{c_*}$ has size~$1$, then for any synchronizing word $u$ of $A/\sim$,
+  \[
+    \rt(A) \le |u| + k - 1.
+  \]
+  In particular, if $k < n$ and $\rt(A/\sim) \le (k - 1)^2$, then $\rt(A) \le (n - 1)^2$.
+
+  \item \emph{Global fat-congruence collapse (zero error term):} If $A$ is strongly connected, $k \ge 2$, and every class has size $s_t \ge m \ge 2$ with some class attaining size $m$, then for any synchronizing word $u$ of $A/\sim$,
+  \[
+    \rt(A) \le |u| + (k - 1) + \sum_{t = 1}^k \left[\binom{s_t + 1}{3} - \binom{s_t - m + 2}{3}\right].
+  \]
+  Consequently, for every $n \ge 5$,
+  \[
+    96 \cdot \rt(A) \le 5 n^3 \qquad \left(\text{and } \rt(A) \le 4 \text{ for } n = 4\right).
+  \]
+
+  \item \emph{Equipartition collapse and unconditional \v{C}ern\'y window (no strong connectivity):} If every class has equal size $s_1 = \dots = s_k = m \ge 2$ ($k \ge 2$, $n = km$), then for any synchronizing word $u$ of $A/\sim$,
+  \[
+    6 \cdot \rt(A) \le 6 |u| + k(m^3 - m).
+  \]
+  Consequently:
+  \begin{enumerate}[label=\textup{(\roman*)},nosep]
+    \item For every $n \ge 6$, $24 \cdot \rt(A) \le n^3$ (and $\rt(A) \le 3$ for $n = 4$).
+    \item Whenever $m \le 2k$ and $k \le 2m^2$, $A$ unconditionally satisfies $\rt(A) \le (n - 1)^2$.
+    \item Whenever $\rt(A/\sim) \le (k - 1)^2$ and $2m^2 \le 9n - 10$, $\rt(A) \le (n - 1)^2$.
+  \end{enumerate}
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+\emph{Part~(a):} Let $u$ synchronize $A/\sim$, so $Q \cdot u \subseteq B_{i_0}$ for some class $B_{i_0}$. Since $A$ is strongly connected, so is $A/\sim$; choose a shortest path $v$ in $A/\sim$ from $B_{i_0}$ to the singleton class $B_{c_*}$. Then $|v| \le k - 1$ and $Q \cdot (uv) \subseteq B_{c_*}$, forcing $|Q \cdot (uv)| = 1$. If $k < n$ and $|u| \le (k - 1)^2$, then $|uv| \le (k - 1)^2 + k - 1 = k(k - 1) \le (n - 1)(n - 2) \le (n - 1)^2$.
+
+\emph{Part~(b):} Choose $u$ synchronizing $A/\sim$ into $B_{i_0}$ and a shortest path $v$ in $A/\sim$ ($|v| \le k - 1$) to a minimum-size class $B_{c_{\min}}$ of size $m$. Then $S_0 := Q \cdot (uv) \subseteq B_{c_{\min}}$ has size $\le m$. Repeatedly applying Lemma~\ref{lem:block-pf} reduces $|S|$ from at most $m$ down to~$1$ while keeping the image inside a single class at each step. Summing over $r = 2, \dots, m$ and applying the hockey-stick identity $\sum_{r=2}^m \binom{s_t - r + 2}{2} = \binom{s_t + 1}{3} - \binom{s_t - m + 2}{3}$ gives the sum bound.
+
+To deduce $96\,\rt(A) \le 5n^3$, set $d := m - 1 \ge 1$ ($k(d + 1) \le n$) and use the Pin--Frankl bound $6|u| \le k^3 - k$. Expanding $6[\binom{s+1}{3} - \binom{s-d+1}{3}] = d(3s^2 - 3ds + d^2 - 1)$ and bounding $\sum_{t=1}^k s_t^2 \le (n - (k - 1)m)^2 + (k - 1)m^2$ (since $\sum (s_t - m)^2 \le (\sum (s_t - m))^2 = (n - km)^2$) yields $6\,\rt(A) \le (k^3 + 5k - 6) + d\, P(n, k, d) =: 6 U$, where $P(n, k, d) = 3(n - (k - 1)(d + 1))^2 + 3(k - 1)(d + 1)^2 - 3dn + k(d^2 - 1)$.
+\begin{itemize}[leftmargin=*,nosep]
+  \item For $k = 2$ ($n \ge 2d + 2$, $n \ge 5$): exact expansion gives
+  \[
+    5n^3 - 96 U = (n - 4d)^2 (5n - 8d) + 16\bigl(6d(n - 2d) - 4d - 12\bigr) \ge 0,
+  \]
+  since $5n - 8d \ge 2d + 10 > 0$, while $6d(n - 2d) - 4d - 12$ is at least $8d - 12 \ge 4$ for $d \ge 2$ and $6n - 28 \ge 2$ for $d = 1, n \ge 5$.
+  \item For $k \ge 3$, write $t := d + 1 \ge 2$ and $y := n - kt \ge 0$, so $P = 3y^2 + (3t + 3)y + kt(t + 1)$ and
+  \begin{align*}
+    5n^3 - 96 U &= 5y^3 + \bigl(15kt - 48(t-1)\bigr)y^2 + \bigl(15k^2t^2 - 48(t^2-1)\bigr)y \\
+    &\qquad + \bigl(5k^3t^3 - 16k^3 - 16kt(t^2-1) - 80k + 96\bigr).
+  \end{align*}
+  For $k \ge 4$, every coefficient is strictly positive (using $5k^3 t^3 \ge 32k^3 + 16k t^3$). For $k = 3$, this equals
+  \[
+    y\bigl(5(y - t)^2 + 7ty + 82t^2\bigr) + 48y^2 + 48y + (87t^3 + 48t - 576) > 0
+  \]
+  as $87t^3 + 48t - 576 \ge 216$ for $t \ge 2$.
+\end{itemize}
+At $n = 4$, $(k, m) = (2, 2)$ gives $\rt(A) \le 1 + 1 + 2 = 4$.
+
+\emph{Part~(c):} When all classes have size $m$, $Q \cdot u \subseteq B_{i_0}$ already has size $\le m$ with no walk $v$, so strong connectivity is unneeded. Lemma~\ref{lem:block-pf} summed over $r = 2, \dots, m$ yields $6\,\rt(A) \le 6|u| + k(m^3 - m)$. Substituting $6|u| \le k^3 - k$:
+\begin{enumerate}[label=\textup{(\roman*)},nosep]
+  \item Exact factorization gives $n^3 - 4(k^3 - k + k(m^3 - m)) = k\bigl((k^2 - 4)(m^3 - 4) + 4(m - 3)\bigr)$, which is $\ge 0$ for all $k \ge 2, m \ge 3$, and equals $4k(k^2 - 5) > 0$ for $m = 2, k \ge 3$ ($n \ge 6$). At $n = 4$, $(k, m) = (2, 2)$ gives $\rt(A) \le 1 + 2 = 3$.
+  \item If $m \le 2k$ and $k \le 2m^2$, then for $n = km \ge 6$, $k^3 - k + k(m^3 - m) \le k^3 + km^3 \le 2n^2 + 2n^2 = 4n^2 \le 6(n - 1)^2$ (since $6(n - 1)^2 - 4n^2 = 2n(n - 6) + 6 \ge 6$); for $n = 4$, $\rt(A) \le 3 < 9$.
+  \item If $|u| \le (k - 1)^2$ and $2m^2 \le 9n - 10$, then since $1 \le k = n / m \le n / 2$, we have $(k - 1)^2 \le (n/2 - 1)^2$ and hence
+  \[
+    (n - 1)^2 - (k - 1)^2 \ge (n - 1)^2 - \left(\frac{n}{2} - 1\right)^2 = \frac{3n^2 - 4n}{4} \ge \frac{n(m^2 - 1)}{6} = \frac{k(m^3 - m)}{6}. \qedhere
+  \]
+\end{enumerate}
+\end{proof}
+
+\section{Elementary Linear Half-Rank Compression on Cyclic Automata}\label{sec:cycle-shift}
+
+We conclude our mathematical results with an elementary five-line argument proving linear compression for all subsets of size $r > n / 2$ in any DFA containing an $n$-cycle and a non-injective letter---requiring neither synchronization nor strong connectivity.
+
+\begin{theorem}[Cycle-shift independence and linear compression]\label{thm:cycle-shift}
+Let $A = (Q, \Sigma, \delta)$ be any DFA on $n = |Q| \ge 2$ states. Suppose $b \in \Sigma$ acts as an $m$-cycle ($m \ge 2$) on a subset $C = \{c_0, c_1, \dots, c_{m-1}\} \subseteq Q$ ($c_j \cdot b = c_{(j+1)\bmod m}$), and $a \in \Sigma$ merges two distinct states $c_{i_0}, c_{i_1} \in C$ ($c_{i_0} \cdot a = c_{i_1} \cdot a$, $i_0 \neq i_1$).
+\begin{enumerate}[label=\textup{(\arabic*)},leftmargin=*,nosep]
+  \item For every $1 \le L \le m$ and every subset $R \subseteq Q$ such that no word of length $\le L$ compresses $R$ ($|R \cdot w| = |R|$ for all $|w| \le L$),
+  \[
+    2\,|R \cap C| + L \le 2m.
+  \]
+  \item Consequently, for every $R \subseteq Q$ with $2(n - |R|) + 1 \le m$, there exists a word $w \in \Sigma^*$ with $|w| \le 2(n - |R|) + 1$ and $|R \cdot w| < |R|$.
+  \item \emph{Multi-cycle extension:} If $b$ has pairwise disjoint cycles $C_1, \dots, C_s$ of lengths $m_1, \dots, m_s \ge 2$ and for each $i$ some letter $a_i \in \Sigma$ merges two distinct states of $C_i$, then for every $L \ge 1$ and every $R \subseteq Q$ uncompressed in length $\le L$,
+  \[
+    |R| + \sum_{i = 1}^s \left\lfloor \frac{\min(L, m_i) + 1}{2} \right\rfloor \le n.
+  \]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) Let $d := (i_1 - i_0) \bmod m \in \{1, \dots, m - 1\}$, and define the shift bijection $\sigma(j) := (j + d) \bmod m$ on $\mathbb{Z}/m\mathbb{Z}$. For each $0 \le k < L$, set $j_k := (i_0 - k) \bmod m$; the word $w_k := b^k a$ has length $k + 1 \le L$ and maps $c_{j_k} \cdot w_k = c_{i_0} \cdot a = c_{i_1} \cdot a = c_{\sigma(j_k)} \cdot w_k$. Since $L \le m$, the set $S_L := \{j_0, \dots, j_{L - 1}\} \subseteq \mathbb{Z}/m\mathbb{Z}$ has exact size $L$.
+
+Set $I := \{j \in \mathbb{Z}/m\mathbb{Z} : c_j \in R\}$ ($|I| = |R \cap C|$), $U := I \cap S_L$, and $V := \sigma(U)$. By bijectivity of $\sigma$, $|V| = |U|$. Moreover, $I \cap V = \emptyset$: if $\sigma(j) \in I$ for some $j \in U = I \cap S_L$, then $c_j$ and $c_{\sigma(j)}$ are distinct elements of $R$ (as $1 \le d < m$) merged by a word $w_k$ of length $\le L$, contradicting $|R \cdot w_k| = |R|$. Therefore,
+\[
+  |I| + |U| = |I| + |V| = |I \cup V| \le m
+  \qquad\text{and}\qquad
+  |I| - |U| = |I \setminus S_L| \le |(\mathbb{Z}/m\mathbb{Z}) \setminus S_L| = m - L.
+\]
+Adding these two inequalities gives $2|I| + L \le 2m$.
+
+(2) Put $L := 2(n - |R|) + 1 \le m$. If no word of length $\le L$ compresses $R$, then~(1) together with $|R| = |R \cap C| + |R \setminus C| \le |R \cap C| + (n - m)$ gives $2|R| + L \le 2n$, i.e., $2|R| + 2(n - |R|) + 1 \le 2n$, a contradiction.
+
+(3) Applying~(1) on each disjoint cycle $C_i$ with $L_i := \min(L, m_i) \le m_i$ yields $|R \cap C_i| + \lfloor (L_i + 1) / 2 \rfloor \le m_i$; summing over $i$ and adding $|R \setminus \bigcup_i C_i| \le n - \sum_i m_i$ gives~(3).
+\end{proof}
+
+\begin{corollary}[Half-rank linear compression on $n$-cycle automata]\label{cor:ncycle-half}
+Let $A = (Q, \Sigma, \delta)$ be any DFA on $n \ge 2$ states containing an $n$-cycle letter $b \in \Sigma$ and any non-injective letter $a \in \Sigma$. Then for every subset $R \subseteq Q$ of size $r = |R| > n / 2$, there exists a word $w \in \Sigma^*$ compressing $R$ ($|R \cdot w| < r$) with
+\[
+  |w| \le 2(n - r) + 1 \le n \qquad\text{and}\qquad r \cdot |w| \le n(n - 1).
+\]
+\end{corollary}
+
+\begin{proof}
+Since $a$ is non-injective, it merges two distinct states of the full $n$-cycle $C = Q$, and $2r > n$ implies $2(n - r) + 1 \le n$. Theorem~\ref{thm:cycle-shift}(2) supplies $w$ with $|w| \le 2(n - r) + 1 \le n$. Finally, write $k := n - r$; since $2r > n \ge 2$, we have $r \ge 2$ and $0 \le k \le r - 1$, whence
+\[
+  n(n - 1) - r(2k + 1) = (r + k)(r + k - 1) - 2rk - r = r(r - 2) + k(k - 1) \ge 0. \qedhere
+\]
+\end{proof}
+
+On the \v{C}ern\'y automaton $\mathcal{C}_n$, the bound $2(n - r) + 1$ is attained exactly for all $r > n / 2$ (for example, $c(\mathcal{C}_{12}, r) = 3, 5, 7$ at $r = 11, 10, 9$), beating the general Pin--Frankl bound $\binom{n - r + 2}{2}$ by a factor of $\Theta(n)$.
+
+\section{Formalization and Methodology}\label{sec:formalization}
+
+All definitions and theorems presented in this paper have been formally mechanized in Lean~4 (v4.36.0) using Mathlib v4.36.0, as part of a $31$-file ($40{,}840$-line; $28$ mathematical modules totaling $39{,}978$ lines) formalization repository publicly available at \url{https://github.com/antonborisov571/cerny-lean}. The proofs were discovered and formalized through an iterative AI-assisted research and formalization workflow, with independent mechanical verification by the Lean~4 kernel: every module builds with both \texttt{autoImplicit} and \texttt{relaxedAutoImplicit} disabled, producing zero errors and zero warnings, with no \texttt{sorry}s, no custom axioms, no \texttt{native\_decide} calls, and no \texttt{maxHeartbeats} or \texttt{set\_option} overrides. All $220$ exported declarations audited via \texttt{\#print axioms} in \texttt{Cerny/Verification.lean} depend strictly on Lean's standard logical axioms (\texttt{propext}, \texttt{Classical.choice}, \texttt{Quot.sound}). All headline theorems and raw unfolded statements ($44$ checks in \texttt{Cerny/StatementCheck.lean}) are additionally verified by independent kernel replay using the standalone checker \texttt{leanchecker} (via \texttt{lake env leanchecker Cerny.StatementCheck}).
+
+Table~\ref{tab:lean-map} gives the exact correspondence between the results in Sections~\ref{sec:transitive}--\ref{sec:cycle-shift} and the Lean~4 declarations in the accompanying repository.
+
+\begin{table}[ht]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.75cm}>{\raggedright\arraybackslash}p{3.65cm}>{\raggedright\arraybackslash}p{9.05cm}@{}}
+\toprule
+Paper Result & Lean Module & Exact Lean Declaration(s) \\
+\midrule
+Lemma~\ref{lem:equipartition} & \texttt{VolkovD6Transitive.lean} & \texttt{VolkovD6Transitive.transReachInf\_symm}\newline \texttt{VolkovD6Transitive.blockCard\_eq} \\
+Lemma~\ref{lem:coarsening} & \texttt{VolkovD6Transitive.lean} & \texttt{VolkovD6Transitive.transWeakCount\_eq\_blockCount}\newline \texttt{VolkovD6Transitive.transSCCCount\_eq\_blockCount\_of\_zhuF}\newline \texttt{VolkovD6Transitive.transSCCCount\_eq\_blockCount\_of\_zhuG} \\
+Lemma~\ref{lem:block-escape} & \texttt{VolkovD6Transitive.lean} & \texttt{VolkovD6Transitive.blockEscape\_extend} \\
+Lemma~\ref{lem:dag-teleport} & \texttt{VolkovD6Record.lean} & \texttt{VolkovD6.sccCount\_half\_eq\_one\_of\_acyclic} \\
+Lemma~\ref{lem:d1-bound} & \texttt{VolkovD6Transitive.lean} & \texttt{VolkovD6Transitive.trans\_d\_eq\_one\_bound} \\
+Theorem~\ref{thm:transitive-beats-zhu} & \texttt{VolkovD6Transitive.lean} & \texttt{transitive\_defectOne\_ge\_five\_bound}\newline \texttt{transitive\_defectOne\_beats\_zhu}\newline \texttt{transitive\_defectOne\_card\_le\_four\_cerny} \\
+Corollary~\ref{cor:primitive-beats-zhu} & \texttt{VolkovD6Record.lean} & \texttt{VolkovD6.sccCount\_pred\_one\_ne\_pred\_two}\newline \texttt{primitive\_defectOne\_beats\_zhu\_ge\_five}\newline \texttt{primitive\_defectOne\_beats\_zhu} \\
+\midrule
+Theorem~\ref{thm:primitive-coprime} & \texttt{AlpogePrimitive.lean} & \texttt{primitive\_sameCycle\_reset\_bound}\newline \texttt{primitive\_coprimeCycle\_cerny} \\
+Proposition~\ref{prop:primitive-ecc} & \texttt{AlpogePrimitive.lean} & \texttt{primitive\_defectOne\_eccentricity\_bound}\newline \texttt{primitive\_defectOne\_zhu\_bound} \\
+\midrule
+Theorem~\ref{thm:d6-subset-cr} & \texttt{CompletelyReachable.lean} & \texttt{volkovD6\_d1\_isCompletelyReachable}\newline \texttt{primitive\_defectOne\_isCompletelyReachable} \\
+Lemma~\ref{lem:orbit-meets-m1} & \texttt{CompletelyReachable.lean} & \texttt{CompletelyReachable.permOrbit\_inter\_defectOneOmitted\_nonempty}\newline \texttt{CompletelyReachable.effOrbitCap\_le\_maxOrbitSize}\newline \texttt{CompletelyReachable.effOrbitCap\_le\_card\_sub\_omitted} \\
+Theorem~\ref{thm:cr-eff-orbit}(1,2) & \texttt{CompletelyReachable.lean} & \texttt{completelyReachable\_effOrbit\_reaching\_bound}\newline \texttt{completelyReachable\_effOrbit\_bound} \\
+Theorem~\ref{thm:cr-eff-orbit}(3) & \texttt{CompletelyReachable.lean} & \texttt{completelyReachable\_beats\_ferensSzykula}\newline \texttt{completelyReachable\_ferensSzykula\_bound} \\
+Corollary~\ref{cor:cr-breaks-2n2} & \texttt{CompletelyReachable.lean} & \texttt{completelyReachable\_breaks\_two\_n\_sq} \\
+\midrule
+Lemma~\ref{lem:block-pf} & \texttt{CongruenceCollapse.lean} & \texttt{block\_pin\_frankl\_compress} \\
+Theorem~\ref{thm:congruence-collapse}(a) & \texttt{CongruenceCollapse.lean} & \texttt{singleton\_congruence\_rt\_bound}\newline \texttt{singleton\_congruence\_preserves\_cerny} \\
+Theorem~\ref{thm:congruence-collapse}(b) & \texttt{CongruenceCollapse.lean} & \texttt{fat\_congruence\_sum\_bound}\newline \texttt{fat\_congruence\_five\_ninety\_six}\newline \texttt{fat\_congruence\_card\_four} \\
+Theorem~\ref{thm:congruence-collapse}(c)(i) & \texttt{CongruenceCollapse.lean} & \texttt{equipartition\_congruence\_bound}\newline \texttt{equipartition\_congruence\_one\_twenty\_fourth}\newline \texttt{equipartition\_congruence\_card\_four} \\
+Theorem~\ref{thm:congruence-collapse}(c)(ii,iii) & \texttt{CongruenceCollapse.lean} & \texttt{equipartition\_congruence\_cerny\_window}\newline \texttt{equipartition\_congruence\_preserves\_cerny} \\
+\midrule
+Theorem~\ref{thm:cycle-shift}(1,2) & \texttt{AlpogeCompression.lean} & \texttt{cycle\_shift\_indep\_bound}\newline \texttt{cycle\_large\_subset\_compression} \\
+Theorem~\ref{thm:cycle-shift}(3) & \texttt{AlpogeCompression.lean} & \texttt{multiCycle\_shift\_indep\_bound} \\
+Corollary~\ref{cor:ncycle-half} & \texttt{AlpogeCompression.lean} & \texttt{nCycle\_half\_compression\_c1} \\
+\bottomrule
+\end{tabular}
+\caption{Exact correspondence between paper results and Lean~4 declarations (all inside namespace \texttt{Cerny} under \texttt{Cerny/}).}
+\label{tab:lean-map}
+\end{table}
+
+\section{Concluding Remarks and Open Problems}\label{sec:conclusion}
+
+Several natural open problems stand directly beyond the results proved here:
+\begin{enumerate}[leftmargin=*,nosep]
+  \item \emph{Breaking the leading constant~$2$ for transitive defect-$1$ and completely reachable automata:} Theorem~\ref{thm:transitive-beats-zhu} pushes the full transitive defect-$\le 1$ bound to $2n^2 - 8n + 9$, and Corollary~\ref{cor:cr-breaks-2n2} breaks $2n^2$ for completely reachable automata whenever $|M_1| \ge \varepsilon n$ (while~\cite{FS2025} already breaks $2n^2$ when $\lorb \le (1 - \varepsilon)n$). By Theorem~\ref{thm:d6-subset-cr}, the remaining bottleneck for \emph{both} Problems~D6 and~D2 of~\cite{Volkov2026} is the giant-orbit, small-$M_1$ regime---in particular, proving $\rt(A) \le (2 - \varepsilon)n^2$ for primitive defect-$1$ automata. Pushing shift-isolation beyond $2n - 5$ meets a structural slack barrier when $\Gamma_{n - 1}$ has SCC sizes $(3, 2, 1, \dots, 1)$, so breaking the leading constant~$2$ appears to require multi-step Schreier-graph expansion beyond one-step coarsening.
+  \item \emph{Unconditional quadratic bounds for imprimitive automata:} Theorem~\ref{thm:congruence-collapse}(c) proves exact $(n - 1)^2$ across the balanced window $m \le 2k,\, k \le 2m^2$, and $n^3 / 24$ globally, but removing the residual $O(k m^3)$ cubic term for extreme aspect ratios $m \gg k$ (e.g., $k = 2, m = n/2$) remains open.
+  \item \emph{Extending linear compression below $r = n / 2$:} Corollary~\ref{cor:ncycle-half} settles the $n(n - 1)/r$ compression bound for all $r > n / 2$ on $n$-cycle automata; extending $c(A, R) = O(n^2 / r)$ to small $r$ (even $r = 3$) requires capturing additive gap structure beyond edge counts in the merge graph, as bipartite circulant graphs such as $K_{n/2, n/2}$ obstruct pure gap-counting.
+\end{enumerate}
+
+\begin{thebibliography}{99}
+
+\bibitem{BV2016}
+E.~A.~Bondar and M.~V.~Volkov, \emph{Completely reachable automata}, in: DCFS 2016, Lecture Notes in Comput. Sci. \textbf{9777}, Springer (2016), 1--17.
+
+\bibitem{BCV2023}
+E.~A.~Bondar, D.~Casas, and M.~V.~Volkov, \emph{Completely reachable automata: an interplay between automata, graphs, and trees}, Internat. J. Found. Comput. Sci. \textbf{34}(6) (2023), 655--690.
+
+\bibitem{Cerny1964}
+J.~\v{C}ern\'y, \emph{Pozn\'amka k homog\'ennym experimentom s kone\v{c}n\'ymi automatmi}, Mat.-Fyz. \v{C}asopis Sloven. Akad. Vied \textbf{14}(3) (1964), 208--216. English translation: J. Autom. Lang. Comb. \textbf{24}(2--4) (2019), 123--132.
+
+\bibitem{FS2025}
+R.~Ferens and M.~Szyku\l a, \emph{Completely reachable automata: a quadratic decision algorithm and a quadratic upper bound on the reaching threshold}, preprint, arXiv:2208.05956v5 (2025).
+
+\bibitem{Frankl1982}
+P.~Frankl, \emph{An extremal problem for two families of sets}, European J. Combin. \textbf{3}(2) (1982), 125--127.
+
+\bibitem{Hong2026a}
+S.~Hong, \emph{Degree transport and a smaller cubic coefficient for reset thresholds}, preprint, Hexagon 2611.00172v1 (Nov.\ 2026), \url{https://hexagonmath.org/abs/2611.00172}.
+
+\bibitem{Hong2026b}
+S.~Hong, \emph{A uniform $7/48$ cubic upper bound for reset thresholds}, preprint, Hexagon 2611.00506v1 (Nov.\ 2026), \url{https://hexagonmath.org/abs/2611.00506}.
+
+\bibitem{Pin1983}
+J.-E.~Pin, \emph{On two combinatorial problems arising from automata theory}, in: Combinatorial Mathematics, North-Holland Math. Stud. \textbf{75} (1983), 535--548.
+
+\bibitem{Rystsov1995}
+I.~K.~Rystsov, \emph{Quasioptimal bound for the length of reset words for regular automata}, Acta Cybernet. \textbf{12}(2) (1995), 145--152.
+
+\bibitem{Shitov2019}
+Y.~Shitov, \emph{An improvement to a recent upper bound for synchronizing words of finite automata}, J. Autom. Lang. Comb. \textbf{24}(2--4) (2019), 367--373; arXiv:1901.06542.
+
+\bibitem{Starke1966}
+P.~H.~Starke, \emph{Eine Bemerkung \"uber homogene Experimente}, Elektron. Informationsverarb. Kybernet. \textbf{2}(4) (1966), 257--259.
+
+\bibitem{Szykula2018}
+M.~Szyku\l a, \emph{Improving the upper bound on the length of the shortest reset word}, in: STACS 2018, LIPIcs \textbf{96} (2018), 56:1--56:13; arXiv:1702.05455.
+
+\bibitem{Szykula2026}
+M.~Szyku\l a, \emph{Synchronizing automata: open problems}, in: AFL 2026, EPTCS \textbf{451} (2026), 33--47; arXiv:2608.24245.
+
+\bibitem{Volkov2022}
+M.~V.~Volkov, \emph{Synchronization of finite automata}, Russian Math. Surveys \textbf{77}(5) (2022), 819--891.
+
+\bibitem{Volkov2026}
+M.~V.~Volkov, \emph{List of results on the \v{C}ern\'y conjecture and reset thresholds for synchronizing automata}, living survey, arXiv:2508.15655v4 (2026).
+
+\bibitem{Zhu2024}
+Y.~Zhu, \emph{A quadratic upper bound on the reset thresholds of synchronizing automata containing a transitive permutation group}, in: FSTTCS 2024, LIPIcs \textbf{323} (2024), 34:1--34:14; arXiv:2407.08135.
+
+\end{thebibliography}
+
+\end{document}

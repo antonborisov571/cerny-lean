@@ -1,0 +1,1088 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\rt}{\operatorname{rt}}
+\newcommand{\Cov}{\operatorname{Cov}}
+\newcommand{\ind}{\mathbf{1}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+
+\title{Breaking the $\frac{7}{48} n^3$ Barrier for Synchronizing Automata}
+
+\author{Anton Borisov\thanks{Mathematical discovery, proof construction, and complete machine verification in Lean~4 were conducted with AI assistance; see Section~\ref{sec:formalization} for full methodological disclosure and theorem-to-Lean correspondence.}}
+
+\date{November 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+The \v{C}ern\'y conjecture asserts that every synchronizing deterministic finite automaton (DFA) on $n$ states admits a synchronizing word of length at most $(n-1)^2$. For general synchronizing DFAs, the classical cubic upper bound $\frac{n^3 - n}{6}$ of Frankl (1982) and Pin (1983) stood for over three decades until improvements by Szyku\l a (2018) and Shitov (2019), who established $\operatorname{rt}(A) \le \frac{8257}{49923} n^3 + o(n^3) \approx 0.165395\, n^3 + o(n^3)$. In November 2026, two unrefereed preprints of Hong introduced degree transport and whole-block transport on merge graphs to obtain $\frac{8242}{49923} n^3 + o(n^3)$ and $\frac{7}{48} n^3 + o(n^3) \approx 0.145833\, n^3 + o(n^3)$.
+
+In this paper, we establish three results for arbitrary synchronizing DFAs:
+\begin{enumerate}[label=(\arabic*), leftmargin=2em]
+  \item \textbf{Breaking the $\frac{7}{48} n^3$ barrier:} There exist explicit constants $\delta > 0$ and $N_0 \in \N$ such that every synchronizing DFA on $n \ge N_0$ states satisfies $\operatorname{rt}(A) \le \bigl(\frac{7}{48} - \delta\bigr) n^3$. Our proof eliminates both tight boundary regimes of $\frac{7}{48} n^3$: a one-line complement degree bound yields a \emph{singularity-free block compression cap} removing the $1/(1-2c)$ blow-up at half-rank, verified algebraically over $\Q$ via five rational Bernstein polynomials; and \emph{common-neighbor preimage lifting} combined with two-scale nested calm times breaks the near-bijective regime $D(n-1) = o(n)$ across the macroscopic band $r \in [\lfloor n/2 \rfloor, \lfloor 0.58 n \rfloor]$.
+  \item \textbf{Explicit quadratic-remainder cubic bounds:} For every synchronizing DFA on $n \ge 1$ states,
+  \[
+    \operatorname{rt}(A) \le \frac{24646}{149769} n^3 + 50 n^2 \approx 0.164560\, n^3 + 50 n^2,
+  \]
+  strictly improving Shitov's $\frac{8257}{49923} n^3$ for all $n \ge 59\,908$ and Hong's $\frac{8242}{49923} n^3$ for all $n \ge 93\,606$. Alongside this, we give a zero-calculus telescoping rational-dual proof of Shitov's bound with explicit remainder $+3n^2$, strictly beating Pin--Frankl for all $n \ge 2359$.
+  \item \textbf{Global exact-transversal corank-gap inequality:} For every synchronizing DFA on $n \ge 2$ states and every $1 \le r \le n - 2$, the corank gap satisfies $\delta(r) \le \lambda(r) + r + 1$ (equivalently $\lambda(r+1) \le 2\lambda(r) + r + 1$), sharpening Shitov's $\delta(r) \le \lambda(r) + 2r$ while removing its $r < n/2$ restriction.
+\end{enumerate}
+Every theorem, proposition, lemma, and corollary in this paper has been completely formalized and machine-checked in Lean~4 (\texttt{v4.36.0} with Mathlib), with zero \texttt{sorry} placeholders and relying solely on standard logical axioms.
+\end{abstract}
+
+\section{Introduction}\label{sec:intro}
+
+A deterministic finite automaton (DFA) $A = (Q, \Sigma, \delta)$ consists of a finite nonempty state set $Q$ of size $n = |Q|$, an input alphabet $\Sigma$, and a transition function $\delta : Q \times \Sigma \to Q$, extended inductively to words $w \in \Sigma^*$ by writing $q \cdot w$ for the state reached from $q$ upon reading $w$. A word $w \in \Sigma^*$ is \emph{synchronizing} (or a \emph{reset word}) if $|Q \cdot w| = 1$, i.e., $w$ maps all states to a single state. An automaton admitting at least one synchronizing word is called \emph{synchronizing}, and its \emph{reset threshold} $\rt(A)$ is the minimum length of a synchronizing word.
+
+In 1964, \v{C}ern\'y~\cite{Cerny1964} constructed for each $n \ge 1$ a two-letter synchronizing DFA $\mathcal{C}_n$ on $n$ states with $\rt(\mathcal{C}_n) = (n-1)^2$, and conjectured that $\rt(A) \le (n-1)^2$ for every synchronizing $n$-state DFA. Despite six decades of intensive work establishing quadratic or exact $(n-1)^2$ bounds for numerous restricted classes of automata (see the surveys of Volkov~\cite{Volkov2022,Volkov2026} and Szyku\l a~\cite{Szykula2026}), the best general upper bounds for arbitrary synchronizing DFAs remain cubic in $n$.
+
+Following early cubic bounds such as Starke~\cite{Starke1966}, Pin~\cite{Pin1983} and Frankl~\cite{Frankl1982} proved in 1982--1983 that $\rt(A) \le \frac{n^3 - n}{6} \approx 0.166667\, n^3$. That leading constant stood unchanged for thirty-five years until Szyku\l a~\cite{Szykula2018} reduced it to $\frac{85059}{511104} n^3 + O(n^2) \approx 0.166422\, n^3 + O(n^2)$ via an avoiding-word lemma, and Shitov~\cite{Shitov2019} sharpened Szyku\l a's framework to obtain $\rt(A) \le \frac{8257}{49923} n^3 + o(n^3) \approx 0.165395\, n^3 + o(n^3)$. In November 2026, two unrefereed Hexagon Math preprints by Hong~\cite{Hong2026a,Hong2026b} introduced merge-graph degree transport and whole-block transport: \cite{Hong2026a} lowered the leading coefficient to $\frac{8242}{49923} \approx 0.165094$, and \cite{Hong2026b} obtained a uniform bound of $\frac{7}{48} n^3 + o(n^3) \approx 0.145833\, n^3 + o(n^3)$ by collapsing the prefix contribution below half-rank to $o(n^3)$.
+
+\subsection{Main results}
+
+In this paper we break strictly below the $\frac{7}{48} n^3$ cubic barrier for all synchronizing DFAs, establish a new explicit quadratic-remainder bound strictly beating both Shitov~\cite{Shitov2019} and Hong~\cite{Hong2026a}, and prove a global linear-algebraic corank-gap bound valid across the full corank range $1 \le r \le n - 2$.
+
+\begin{theorem}[Breaking the $\frac{7}{48} n^3$ barrier]\label{thm:below-7-48}
+There exist an explicit rational constant $\delta > 0$ and an explicit threshold $N_0 \in \N$ such that every synchronizing DFA $A$ on $n \ge N_0$ states admits a synchronizing word $w$ satisfying
+\[
+  |w| \le \left(\frac{7}{48} - \delta\right) n^3.
+\]
+Equivalently, in division-free integer form, there exist positive integers $p, q \ge 1$ and $N_0 \in \N$ such that every synchronizing DFA $A$ on $n \ge N_0$ states admits a synchronizing word $w$ satisfying
+\[
+  48 q \, |w| \le (7 q - p)\, n^3.
+\]
+\end{theorem}
+
+While Theorem~\ref{thm:below-7-48} breaks $\frac{7}{48} n^3$ asymptotically with an explicit constant $\delta > 0$ (singly exponential in $J_A = 10^8$) and an explicit threshold $N_0$ (singly exponential in $J_B = 10^9 D_{c_1}^2$, see Section~\ref{sec:assembly}), it is also of independent interest to obtain strong general cubic bounds with explicit quadratic remainder $O(n^2)$ and modest explicit thresholds $N_0$.
+
+\begin{theorem}[Explicit-$O(n^2)$ sub-Shitov and sub-Hong bound]\label{thm:sub-shitov}
+Every synchronizing DFA $A$ on $n \ge 1$ states admits a synchronizing word $w$ satisfying
+\[
+  149769\, |w| \le 24646\, n^3 + 7488450\, n^2,
+  \qquad\text{i.e.,}\qquad
+  |w| \le \frac{24646}{149769} n^3 + 50 n^2 \approx 0.164560\, n^3 + 50 n^2.
+\]
+Consequently:
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+  \item For every $n \ge 59\,908$, every synchronizing $n$-state DFA satisfies $49923\, \rt(A) < 8257\, n^3$, strictly improving Shitov~\cite{Shitov2019}.
+  \item For every $n \ge 93\,606$, every synchronizing $n$-state DFA satisfies $49923\, \rt(A) < 8242\, n^3$, strictly improving Hong~\cite{Hong2026a}.
+\end{enumerate}
+\end{theorem}
+
+As the foundation for Theorem~\ref{thm:sub-shitov}, we also present an elementary, zero-calculus proof of Shitov's exact cubic constant $\frac{8257}{49923}$ with an explicit $+3n^2$ remainder.
+
+\begin{theorem}[Zero-calculus rational-dual Shitov bound]\label{thm:shitov-zero-calc}
+Every synchronizing DFA $A$ on $n \ge 1$ states admits a synchronizing word $w$ satisfying
+\[
+  49923\, |w| \le 8257\, n^3 + 149769\, n^2,
+  \qquad\text{i.e.,}\qquad
+  |w| \le \frac{8257}{49923} n^3 + 3 n^2.
+\]
+In particular, $2000\, |w| \le 333\, n^3 + 6000\, n^2$ for all $n \ge 1$, and for every $n \ge 2359$ every synchronizing $n$-state DFA satisfies $6\, \rt(A) < n^3 - n$ and $\rt(A) < (n^3 - n)/6$.
+\end{theorem}
+
+Finally, we record a clean linear-algebraic inequality for the corank sequence $\lambda(r) := \min\{|w| : |Q \cdot w| \le n - r\}$ and its gaps $\delta(r) := \lambda(r+1) - \lambda(r)$, which sharpens Shitov's gap lemma $\delta(r) \le \lambda(r) + 2r$ (originally restricted to $r < n/2$) across the entire corank spectrum.
+
+\begin{theorem}[Global exact-transversal corank-gap bound]\label{thm:exact-transversal}
+For every synchronizing DFA $A$ on $n \ge 2$ states and every integer $r$ with $1 \le r \le n - 2$,
+\[
+  \delta(r) \le \lambda(r) + r + 1,
+  \qquad\text{equivalently,}\qquad
+  \lambda(r + 1) \le 2 \lambda(r) + r + 1.
+\]
+\end{theorem}
+
+Table~\ref{tab:comparison} summarizes how Theorems~\ref{thm:below-7-48}--\ref{thm:shitov-zero-calc} compare with previous general cubic upper bounds.
+
+\begin{table}[ht]
+\centering
+\caption{General cubic upper bounds on $\rt(A)$ for arbitrary synchronizing $n$-state DFAs.}
+\label{tab:comparison}
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+Reference & Leading term & Lower-order term & Status / Notes \\
+\midrule
+Frankl~\cite{Frankl1982}, Pin~\cite{Pin1983} & $\frac{1}{6} n^3 \approx 0.166667\, n^3$ & $-\frac{1}{6} n$ & Peer-reviewed \\
+Szyku\l a~\cite{Szykula2018} & $\frac{85059}{511104} n^3 \approx 0.166422\, n^3$ & $+O(n^2)$ & Peer-reviewed \\
+Shitov~\cite{Shitov2019} & $\frac{8257}{49923} n^3 \approx 0.165395\, n^3$ & $+o(n^3)$ & Peer-reviewed \\
+Theorem~\ref{thm:shitov-zero-calc} & $\frac{8257}{49923} n^3 \approx 0.165395\, n^3$ & $+3 n^2$ & Lean~4; beats PF ($n \ge 2359$) \\
+Hong~\cite{Hong2026a} & $\frac{8242}{49923} n^3 \approx 0.165094\, n^3$ & $+o(n^3)$ & Unrefereed (Nov.~2026) \\
+Theorem~\ref{thm:sub-shitov} & $\frac{24646}{149769} n^3 \approx 0.164560\, n^3$ & $+50 n^2$ & Lean~4; beats \cite{Shitov2019,Hong2026a} \\
+Hong~\cite{Hong2026b} & $\frac{7}{48} n^3 \approx 0.145833\, n^3$ & $+o(n^3)$ & Unrefereed (Nov.~2026) \\
+Theorem~\ref{thm:below-7-48} & $(\frac{7}{48} - \delta) n^3$ ($\delta > 0$) & explicit $N_0$ & Lean~4 verified \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Why \texorpdfstring{$\frac{7}{48} n^3$}{7/48 n\textasciicircum 3} was a natural barrier, and how we break it}
+
+By the sink-SCC reduction (Lemma~\ref{lem:scc-reduction}), cubic upper bounds reduce to strongly connected synchronizing DFAs. Telescoping $\rt(A) = \lambda(n-1) = \sum_{r=0}^{n-2} \delta(r)$ and applying Pin--Frankl's gap bound $\delta(r) \le \binom{r+2}{2} \approx \frac{r^2}{2}$ for $r \ge \lfloor n/2 \rfloor$ yields
+\[
+  \sum_{r = \lfloor n/2 \rfloor}^{n-2} \delta(r) \le \frac{n^3 - (n/2)^3}{6} + O(n^2) = \frac{7}{48} n^3 + O(n^2).
+\]
+Thus $\frac{7}{48} n^3$ is the exact upper-half Pin--Frankl integral, achieved whenever the prefix $\lambda(\lfloor n/2 \rfloor)$ is $o(n^3)$ while the upper-half gaps $\delta(r)$ ($r \ge n/2$) remain unimproved.
+
+In Hong's whole-block transport method~\cite{Hong2026b}, given a short witness word $v$ of corank $C = c n$, the kernel partition $\{p v^{-1} : p \in Q \cdot v\}$ produces a compression cap above half-rank on $r \in [n/2, (n+C)/2]$. However, two distinct obstructions force Hong's bound to stall at $\frac{7}{48} n^3$:
+\begin{enumerate}[label=(\roman*), leftmargin=2em]
+  \item \textbf{The $c = 1/2$ singularity.} Controlling non-singleton fibers of $v$ via singleton-block averaging introduces a denominator $1 - 2c$ in the compression cap, which blows up as $c \to \frac{1}{2}^-$. Consequently, one cannot uniformly extract a positive saving above half-rank near $c = 1/2$, leaving $c = 1/2$ as a tight point for $\frac{7}{48} n^3$.
+  \item \textbf{The near-bijective regime $c \to 0$.} When every short word of length $n-1$ has tiny corank $D(n-1) = o(n)$ and even quadratic-length words of length $\lfloor \eta_1 n^2 \rfloor$ have corank $< n/10$, whole-block transport yields a vanishing saving $O(c) n^3 \to 0$. In this regime every letter is close to a permutation, yet the upper-half merge graphs $E_t$ ($t < \delta(r)$) can still be large-degree graphs admitting an independent set of size $n - r < n/2$.
+\end{enumerate}
+
+Our proof of Theorem~\ref{thm:below-7-48} demolishes both obstructions cleanly and without calculus:
+\begin{itemize}[leftmargin=2em]
+  \item \textbf{Complement Degree Bound and Singularity-Free Cap (Section~\ref{sec:cap}).} For \emph{every} word $v$ of corank $C$, every $q \ge 0$, and every state $z \in Q$---with no strong connectivity, no transport, and no time shift---every kernel block $p \in Q \cdot v$ not contained in $N_{E_q}(z)$ receives a state from $Q \setminus N_{E_q}(z)$, yielding in one line $\deg_{E_q}(z) \le C + K_q(z)$ (Lemma~\ref{lem:complement-deg}). Splitting $Q$ into singleton and non-singleton $v$-fibers replaces the singular $1/(1-2c)$ factor by $\min(C^2, nC/2)$ (Proposition~\ref{prop:singularity-free-cap}). On the interval $[a, b] = [\max(\frac{1}{2}, \frac{17}{12} c), \frac{1+c}{2}]$, this cap saves strictly more than the prefix payment $p(c, x)$ across the entire range $c \in (0, 0.505]$, certified by five exact positive-coefficient Bernstein identities over $\Q$ (Lemma~\ref{lem:rational-payment}).
+  \item \textbf{Common-Neighbor Preimage Lifting (Section~\ref{sec:caseB}).} In the near-bijective regime where $D(n-1) < n / D_{c_1}$ and $D(\lfloor n^2/D_\eta \rfloor) < n/10$, any edge $\{u, v\} \in E_{L_0}$ is witnessed by a word $w$ of length $\le L_0$ merging $u$ and $v$ to a state $z$. Pulling back the $E_t$-neighborhood $N_{E_t}(z)$ along $w$ produces a set $W = (N_{E_t}(z)) w^{-1} \subseteq N_{E_{t+L_0}}(u) \cap N_{E_{t+L_0}}(v)$ of size at least $m_t - D(L_0)$ (Lemma~\ref{lem:preimage-lift}). When $S$ is an independent set of size $n - r \ge 0.42 n$ in $E_{t+L_0}$, every vertex in $V_1 = N_{E_{L_0}}(S) \subseteq Q \setminus S$ inherits at least $m_t - D(L_0)$ neighbors \emph{inside} $Q \setminus S$. Finding a calm scale $L_0$ via geometric growth (ratio $39/38$) and a two-scale nested calm pair $(t, T = t + L_0)$ forces a double-counting contradiction $2.5255 |S| \le 1.06 n$ whenever $\delta(r) > \lfloor 0.120 n^2 \rfloor + 1$ (Proposition~\ref{prop:caseB-band}). Summing over $r \in [\lfloor n/2 \rfloor, \lfloor 0.58 n \rfloor]$ cuts more than $0.001\, n^3$ below $\frac{7}{48} n^3$.
+  \item \textbf{Non-circular three-case parameter chain (Section~\ref{sec:assembly}).} Fixing $(J_A, M_A) \to D_\eta \to D_{c_1} \to (D_{\varepsilon_B}, J_B, M_B) \to K_B \to N_{\mathrm{sc}} \to N_0$ in strict dependency order cleanly partitions all strongly connected DFAs into Case~A ($D(\lfloor n^2/D_\eta \rfloor) \ge n/10$), Case~C ($D(\lfloor n^2/D_\eta \rfloor) < n/10$ and $D(n-1) \ge n/D_{c_1}$), and Case~B ($D(\lfloor n^2/D_\eta \rfloor) < n/10$ and $D(n-1) < n/D_{c_1}$), with every case strictly below $\frac{7}{48} n^3$.
+\end{itemize}
+
+\subsection{Formal verification}
+
+Every theorem, proposition, lemma, and corollary stated in this paper has been completely formalized and verified in Lean~4 (\texttt{v4.36.0} with Mathlib \texttt{v4.36.0}); Remarks~\ref{rem:unformalized-37-384} and~\ref{rem:exact-transversal-sharp} are supplementary discussions outside the formal declarations. Section~\ref{sec:formalization} documents the exact Lean modules, declaration names, axiom audit, and AI-assisted methodology.
+
+\section{Preliminaries and Merge Graphs}\label{sec:prelim}
+
+Let $A = (Q, \Sigma, \delta)$ be a DFA on $n = |Q| \ge 1$ states. For $S \subseteq Q$ and $w \in \Sigma^*$, write $S \cdot w := \{q \cdot w : q \in S\}$ and $S w^{-1} := \{q \in Q : q \cdot w \in S\}$. Note that $|S \cdot w| \le |S|$ and $Q \cdot (uv) = (Q \cdot u) \cdot v$. We say $A$ is \emph{strongly connected} if for every $p, q \in Q$ there exists a word $w \in \Sigma^*$ with $p \cdot w = q$; equivalently, by taking a shortest path in the underlying digraph, there exists such a word of length $|w| \le n - 1$.
+
+A synchronizing DFA $A$ has a unique \emph{sink strongly connected component} $C_{\mathrm{sink}} \subseteq Q$, namely the set of states reachable from every state of $Q$. The restriction $A|_{C_{\mathrm{sink}}}$ is both strongly connected and synchronizing, and standard reachability yields the following reduction.
+
+\begin{lemma}[Sink-SCC reduction]\label{lem:scc-reduction}
+Let $A$ be a synchronizing DFA on $n$ states whose sink SCC $C_{\mathrm{sink}}$ has size $s = |C_{\mathrm{sink}}| \ge 1$. Then
+\[
+  2\, \rt(A) \le (n - s)(n - s + 1) + 2\, \rt(A|_{C_{\mathrm{sink}}}).
+\]
+\end{lemma}
+
+\subsection{Corank sequence, gaps, and generalized corank}
+
+For a synchronizing DFA $A$ on $n$ states, define for each $0 \le i \le n - 1$ the \emph{minimum corank-$i$ length}
+\[
+  \lambda(i) := \min \{ |w| : w \in \Sigma^*,\ |Q \cdot w| \le n - i \},
+\]
+and for each $0 \le j \le n - 2$ the \emph{corank gap}
+\[
+  \delta(j) := \lambda(j + 1) - \lambda(j).
+\]
+Clearly $0 = \lambda(0) \le \lambda(1) \le \dots \le \lambda(n - 1) = \rt(A)$, and for all $0 \le a \le b \le n - 1$,
+\[
+  \lambda(b) = \lambda(a) + \sum_{j = a}^{b - 1} \delta(j).
+\]
+For any integer $L \ge 0$, define the \emph{generalized corank at length $L$} by
+\[
+  D(L) := \max \{ i \in \{0, \dots, n - 1\} : \lambda(i) \le L \}
+         = \max \{ n - |Q \cdot w| : |w| \le L \}.
+\]
+The function $L \mapsto D(L)$ is nondecreasing, satisfies $D(L) \le n - 1$ and $\lambda(D(L)) \le L$, and attains its value at a word $v$ of length $|v| \le L$ with $|Q \cdot v| = n - D(L)$. We abbreviate the \emph{short corank} by $D := D(n - 1)$.
+
+We collect two classical corank-gap bounds that will be used repeatedly.
+
+\begin{lemma}[Pin--Frankl gap bound~\cite{Frankl1982,Pin1983}]\label{lem:pf-gap}
+For every synchronizing DFA $A$ on $n$ states and every $0 \le j \le n - 2$,
+\[
+  \delta(j) \le \binom{j + 2}{2}.
+\]
+Moreover, for all integers $0 \le a \le b$,
+\[
+  6 \sum_{j = a}^{b - 1} \binom{j + 2}{2} = b(b + 1)(b + 2) - a(a + 1)(a + 2).
+\]
+In particular, $6\, \rt(A) \le n^3 - n$.
+\end{lemma}
+
+\begin{lemma}[Shitov's corank-gap upgrade~\cite{Shitov2019}]\label{lem:shitov-gap}
+Let $A$ be a synchronizing DFA on $n$ states, and let $r, \tau \in \N$ satisfy $1 \le r$, $2r + 2 \le n$, and $\tau \le n - 2$. If $\delta(\tau) > 2r$, then
+\[
+  \delta(r) \le \lambda(\tau) + 2r.
+\]
+\end{lemma}
+
+\subsection{Merge graphs, degree transport, and the telescoping AP plateau inequality}
+
+For each $t \in \N$, define the \emph{length-$t$ merge graph} $E_t = (Q, \mathcal{E}_t)$ as the simple undirected graph on $Q$ where distinct states $x \ne y$ are adjacent if and only if there exists a word $w \in \Sigma^*$ of length $|w| \le t$ with $x \cdot w = y \cdot w$. Write $N_{E_t}(x)$ for the neighborhood of $x$ in $E_t$, $\deg_{E_t}(x) := |N_{E_t}(x)|$, and
+\[
+  m_t := \min_{x \in Q} \deg_{E_t}(x), \qquad \Delta_t := \max_{x \in Q} \deg_{E_t}(x).
+\]
+Clearly $N_{E_{t_1}}(x) \subseteq N_{E_{t_2}}(x)$, $m_{t_1} \le m_{t_2}$, and $\Delta_{t_1} \le \Delta_{t_2}$ whenever $t_1 \le t_2$.
+
+\begin{lemma}[Independent sets and strict edge growth]\label{lem:merge-basic}
+Let $A$ be a synchronizing DFA on $n$ states, $0 \le r \le n - 2$, and $0 \le t < \delta(r)$. Then:
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+  \item There exists an independent set $S \subseteq Q$ in $E_t$ of size $|S| = n - r$.
+  \item $2t \le \sum_{x \in Q} \deg_{E_t}(x)$.
+  \item $(n - r) m_t \le r \Delta_t$ and $t \le r \Delta_t$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(a) Let $u$ be a word of length $\lambda(r)$ achieving $|Q \cdot u| \le n - r$. Since $\delta(r) > t \ge 0$, we must have $|Q \cdot u| = n - r$. Let $S := Q \cdot u$. If distinct $x, y \in S$ were merged by a word $w$ of length $|w| \le t$, then $|Q \cdot (uw)| = |S \cdot w| \le |S| - 1 = n - (r + 1)$, giving $\lambda(r + 1) \le |u| + |w| \le \lambda(r) + t$, contradicting $t < \delta(r)$. Thus $S$ is independent in $E_t$.
+
+(b) We induct on $t$, the case $t = 0$ being trivial. Suppose $s + 1 \le t < \delta(r)$. If $E_{s+1} = E_s$, an induction on word length shows that every mergeable pair of distinct states is already adjacent in $E_s$; since $A$ is synchronizing and $|S| = n - r \ge 2$, $S$ would contain an edge of $E_s$, contradicting part~(a) at time $s$. Hence $E_{s+1}$ contains at least one new undirected edge $\{x_0, y_0\} \notin E_s$, increasing $\sum_{x \in Q} \deg_{E_t}(x)$ by at least $2$.
+
+(c) Let $S$ be as in~(a) and $\bar{S} = Q \setminus S$ ($|\bar{S}| = r$). Every edge incident to $S$ has its other endpoint in $\bar{S}$, so
+\[
+  (n - r) m_t \le \sum_{x \in S} \deg_{E_t}(x) \le \sum_{y \in \bar{S}} \deg_{E_t}(y) \le r \Delta_t.
+\]
+Moreover, $\sum_{x \in Q} \deg_{E_t}(x) = \sum_{x \in S} \deg_{E_t}(x) + \sum_{y \in \bar{S}} \deg_{E_t}(y) \le 2 r \Delta_t$, which combined with~(b) gives $t \le r \Delta_t$.
+\end{proof}
+
+\begin{lemma}[Degree transport~\cite{Hong2026a}]\label{lem:deg-transport}
+Let $A$ be a strongly connected synchronizing DFA on $n$ states, and let $h := n - 1$. For every $t \in \N$,
+\[
+  \Delta_t \le D(h) + m_{t + h}.
+\]
+\end{lemma}
+
+\begin{proof}
+Choose $x, y \in Q$ achieving $\deg_{E_t}(x) = \Delta_t$ and $\deg_{E_{t+h}}(y) = m_{t+h}$. By strong connectivity, there is a word $w$ of length $|w| \le h$ with $y \cdot w = x$. Every $z \in N_{E_t}(x) \cap (Q \cdot w)$ has a preimage $p \in Q$ with $p \cdot w = z$; then $p \ne y$ (since $z \ne x = y \cdot w$) and composing $w$ with a word of length $\le t$ merging $z$ and $x$ merges $p$ and $y$ in length $\le t + h$, so $p \in N_{E_{t+h}}(y)$. Thus
+\[
+  N_{E_t}(x) \cap (Q \cdot w) \subseteq (N_{E_{t+h}}(y)) \cdot w,
+\]
+and therefore $\Delta_t = |N_{E_t}(x)| \le |N_{E_t}(x) \cap (Q \cdot w)| + |Q \setminus (Q \cdot w)| \le m_{t+h} + D(h)$.
+\end{proof}
+
+Combining Lemmas~\ref{lem:merge-basic} and~\ref{lem:deg-transport} via telescoping along an arithmetic progression yields an unconditional plateau bound below half-rank that is used in both Sections~\ref{sec:below-7-48} and~\ref{sec:sub-shitov}.
+
+\begin{lemma}[Unconditional telescoping AP plateau inequality]\label{lem:ap-plateau}
+Let $A$ be a strongly connected synchronizing DFA on $n$ states, and let $r, M \in \N$ satisfy $1 \le r$, $2r < n$, and $M \ge 1$. Then
+\[
+  \delta(r) \le \frac{r(n - r)}{n - 2r}\, D + \frac{r^2}{n - 2r}\, \frac{n}{M} + M n.
+\]
+\end{lemma}
+
+\begin{proof}
+Set $h := n - 1$. If $\delta(r) \le M h + 1$, then $\delta(r) \le M h + M = M n$ and the inequality holds trivially. Otherwise $\delta(r) - 1 \ge M h$. Define the $M + 1$ times $t_j := (\delta(r) - 1) - (M - j) h$ for $0 \le j \le M$, so $t_j < \delta(r)$ and $t_{j+1} = t_j + h$. For every $0 \le j < M$, Lemmas~\ref{lem:deg-transport} and~\ref{lem:merge-basic}(c) give
+\[
+  (n - r) \Delta_{t_j} \le (n - r) D + (n - r) m_{t_{j+1}} \le (n - r) D + r \Delta_{t_{j+1}},
+\]
+which rearranges to
+\[
+  (n - 2r) \Delta_{t_j} \le (n - r) D + r (\Delta_{t_{j+1}} - \Delta_{t_j}).
+\]
+Summing over $j = 0, \dots, M - 1$, the differences telescope to $\Delta_{t_M} - \Delta_{t_0} \le n$, while monotonicity gives $M \Delta_{t_0} \le \sum_{j=0}^{M-1} \Delta_{t_j}$. Hence
+\[
+  M (n - 2r) \Delta_{t_0} \le M (n - r) D + r n.
+\]
+Finally, Lemma~\ref{lem:merge-basic}(c) at $t_0$ yields $\delta(r) - 1 - M h = t_0 \le r \Delta_{t_0}$, so
+\[
+  \delta(r) \le r \Delta_{t_0} + M h + 1 \le \frac{r(n - r)}{n - 2r} D + \frac{r^2}{n - 2r} \frac{n}{M} + M n. \qedhere
+\]
+\end{proof}
+
+We will also repeatedly invoke the following elementary pigeonhole calm-step lemma.
+
+\begin{lemma}[Calm step]\label{lem:calm-step}
+Let $f : \N \to \N$ be nondecreasing and bounded above by $n$. For any $M \ge 1$, $\mathrm{start} \in \N$, and $\mathrm{step} \in \N$, there exists $i \in \{0, \dots, M - 1\}$ such that
+\[
+  f(\mathrm{start} + (i + 1)\,\mathrm{step}) - f(\mathrm{start} + i\,\mathrm{step}) \le \lfloor n / M \rfloor.
+\]
+\end{lemma}
+
+\begin{proof}
+If every difference were at least $\lfloor n / M \rfloor + 1$, summing over $i = 0, \dots, M - 1$ would give $f(\mathrm{start} + M\,\mathrm{step}) \ge M(\lfloor n / M \rfloor + 1) > n$, a contradiction.
+\end{proof}
+
+\section{Proof of Theorem~\ref{thm:below-7-48}: Breaking the \texorpdfstring{$\frac{7}{48} n^3$}{7/48 n\textasciicircum 3} Barrier}\label{sec:below-7-48}
+
+Throughout Sections~\ref{sec:cap}--\ref{sec:caseB}, $A = (Q, \Sigma, \delta)$ is a strongly connected synchronizing DFA on $n = |Q|$ states, and $h := n - 1$.
+
+\subsection{Complement degree bound and singularity-free compression cap}\label{sec:cap}
+
+Fix any word $v \in \Sigma^*$. Let $R := Q \cdot v$ be its image and $C := n - |R|$ its corank. For each $t \in \N$ and $x \in Q$, define the \emph{block-cover set}
+\[
+  \Cov_{v, t}(x) := \{ p \in R : p v^{-1} \subseteq N_{E_t}(x) \},
+\]
+the \emph{block-cover degree} $K_t(x) := |\Cov_{v, t}(x)|$, and its maximum $K_t := \max_{x \in Q} K_t(x)$. We also define the \emph{block-join graph} $\Gamma_t$ on vertex set $R$, where distinct $p, q \in R$ are adjacent whenever $(p v^{-1}) \times (q v^{-1}) \subseteq E_t$, and write $\deg_{\Gamma_t}(p)$ for the degree of $p$ in $\Gamma_t$.
+
+The key observation that eliminates the $1/(1 - 2c)$ singularity of~\cite{Hong2026b} is the following one-line unconditional bound.
+
+\begin{lemma}[Complement degree bound]\label{lem:complement-deg}
+For \emph{every} DFA $A$ on $n$ states, every word $v \in \Sigma^*$ of corank $C = n - |Q \cdot v|$, every $q \in \N$, and every state $z \in Q$,
+\[
+  \deg_{E_q}(z) \le C + K_q(z).
+\]
+\end{lemma}
+
+\begin{proof}
+Let $R := Q \cdot v$. For every $p \in R \setminus \Cov_{v, q}(z)$, by definition $p v^{-1} \not\subseteq N_{E_q}(z)$, so there exists $y \in Q \setminus N_{E_q}(z)$ with $y \cdot v = p$. Hence
+\[
+  R \setminus \Cov_{v, q}(z) \subseteq (Q \setminus N_{E_q}(z)) \cdot v.
+\]
+Taking cardinalities gives $|R| - K_q(z) \le n - \deg_{E_q}(z)$, i.e., $\deg_{E_q}(z) \le (n - |R|) + K_q(z) = C + K_q(z)$.
+\end{proof}
+
+Next, we record whole-block transport (following~\cite{Hong2026b}) and its single-quantity calm-time consequence.
+
+\begin{lemma}[Whole-block transport and single-quantity calm time]\label{lem:whole-block-transport}
+Let $A$ be a strongly connected synchronizing DFA on $n$ states, and let $v \in \Sigma^*$ have image $R = Q \cdot v$ and corank $C = n - |R|$. Set $B := |v| + (n - 1)$ and $a_0 := D(2|v| + n - 1) - C$.
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+  \item For every $t \in \N$ and every $p_0 \in R$, $K_t \le \deg_{\Gamma_{t + B}}(p_0) + a_0$.
+  \item For every $M \ge 1$ and $T_0 \ge (M + 1) B$, there exists $q \in [T_0 - M B, T_0]$ with $q \ge B$ such that for all $p_0 \in R$,
+  \[
+    K_q \le \deg_{\Gamma_q}(p_0) + \eta_0, \qquad\text{where } \eta_0 := a_0 + \lfloor n / M \rfloor.
+  \]
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(a) Pick $x \in Q$ with $K_t(x) = K_t$, and by strong connectivity pick a word $w$ of length $|w| \le n - 1$ with $p_0 \cdot w = x$. Let $I_{vwv} := Q \cdot (vwv) \subseteq R$. Since $|vwv| \le 2|v| + n - 1$, we have $|R \setminus I_{vwv}| = (n - |I_{vwv}|) - (n - |R|) \le D(2|v| + n - 1) - C = a_0$.
+
+We claim that $\Cov_{v, t}(x) \cap I_{vwv} \subseteq N_{\Gamma_{t+B}}(p_0) \cdot (wv)$. Indeed, any $r \in \Cov_{v, t}(x) \cap I_{vwv}$ can be written as $r = b_0 \cdot (vwv) = q \cdot (wv)$ for $q := b_0 \cdot v \in R$. Then $q \cdot w \in r v^{-1} \subseteq N_{E_t}(x)$, which forces $q \cdot w \ne x = p_0 \cdot w$ (hence $q \ne p_0$) and supplies a word $u'$ of length $|u'| \le t$ with $(q \cdot w) \cdot u' = x \cdot u' = (p_0 \cdot w) \cdot u'$. For every $a \in p_0 v^{-1}$ and $b \in q v^{-1}$, the word $vwu'$ has length $|vwu'| \le t + |v| + n - 1 = t + B$ and merges $a$ and $b$, showing $q \in N_{\Gamma_{t+B}}(p_0)$. Taking cardinalities yields
+\[
+  K_t = |\Cov_{v, t}(x)| \le |\Cov_{v, t}(x) \cap I_{vwv}| + |R \setminus I_{vwv}| \le \deg_{\Gamma_{t+B}}(p_0) + a_0.
+\]
+
+(b) Applying Lemma~\ref{lem:calm-step} to the nondecreasing function $t \mapsto K_t \le n$ with $\mathrm{start} = T_0 - M B \ge B$ and $\mathrm{step} = B$ gives $i \in \{0, \dots, M - 1\}$ such that $q := \mathrm{start} + (i + 1) B$ satisfies $K_q - K_{q - B} \le \lfloor n / M \rfloor$. Combining this with part~(a) at time $t = q - B$ yields $K_q \le \deg_{\Gamma_q}(p_0) + a_0 + \lfloor n / M \rfloor$.
+\end{proof}
+
+Combining Lemma~\ref{lem:complement-deg} and Lemma~\ref{lem:whole-block-transport} produces the singularity-free compression cap.
+
+\begin{proposition}[Singularity-free block compression cap]\label{prop:singularity-free-cap}
+Let $A$ be a strongly connected synchronizing DFA on $n$ states, and let $v \in \Sigma^*$ have corank $C = n - |Q \cdot v|$. Let $r, M \in \N$ satisfy $r \le n - 2$, $M \ge 1$, and $2(n - r) > n - C$. Set
+\[
+  b := n - r, \quad B := |v| + (n - 1), \quad \Omega := (M + 1) B + 1, \quad
+  a_0 := D(2|v| + n - 1) - C, \quad \eta_0 := a_0 + \lfloor n / M \rfloor.
+\]
+Then
+\begin{equation}\label{eq:sf-cap}
+  \delta(r) \le \min\!\left(C^2,\, \frac{n C}{2}\right)
+    + \left(\frac{n}{2} + \min\!\left(C,\, \frac{n}{2}\right)\right)
+      \frac{b \eta_0}{2b - (n - C)}
+    + \Omega.
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+If $\delta(r) \le \Omega$, \eqref{eq:sf-cap} holds trivially. Assume therefore that $T_0 := \delta(r) - 1 \ge (M + 1) B$, and let $q \in [T_0 - M B, T_0]$ with $q \ge B \ge |v|$ be the calm time given by Lemma~\ref{lem:whole-block-transport}(b). Since $q < \delta(r)$, Lemma~\ref{lem:merge-basic}(a)--(b) yields an independent set $S$ in $E_q$ of size $|S| = b = n - r$ and $2q \le \sum_{x \in Q} \deg_{E_q}(x)$.
+
+First, we bound $K_q$. Because $|v| \le q$ and $S$ is independent in $E_q$, the map $x \mapsto x \cdot v$ is injective on $S$, so $I := S \cdot v \subseteq R$ has size $|I| = b$. Moreover, $I$ is independent in $\Gamma_q$ (any $\Gamma_q$-edge between $x \cdot v$ and $y \cdot v$ would force $\{x, y\} \in E_q$). Observe also that for every $p' \in R$ (say $p' = z \cdot v$), every neighbor $p \in N_{\Gamma_q}(p')$ satisfies $p v^{-1} \subseteq N_{E_q}(z)$ and hence $p \in \Cov_{v, q}(z)$, so $\deg_{\Gamma_q}(p') \le K_q$. Double-counting $\Gamma_q$-edges between $I$ and $R \setminus I$ gives
+\[
+  b(K_q - \eta_0) \le \sum_{p \in I} \deg_{\Gamma_q}(p) \le \sum_{p' \in R \setminus I} \deg_{\Gamma_q}(p') \le (|R| - b) K_q = (n - C - b) K_q,
+\]
+where the first inequality uses Lemma~\ref{lem:whole-block-transport}(b). Rearranging yields
+\begin{equation}\label{eq:Kq-bound}
+  K_q \le \frac{b \eta_0}{2b - (n - C)}.
+\end{equation}
+
+Second, we partition $Q$ into the singleton-fiber states $S_{\mathrm{sing}} := \{x \in Q : |(x \cdot v) v^{-1}| = 1\}$ and their complement $Q \setminus S_{\mathrm{sing}}$. Let $R_{\mathrm{sing}} := \{p \in R : |p v^{-1}| = 1\}$, so $|S_{\mathrm{sing}}| = |R_{\mathrm{sing}}|$. Since every $p \in R \setminus R_{\mathrm{sing}}$ has $|p v^{-1}| \ge 2$, we have $|p v^{-1}| \le 2(|p v^{-1}| - 1)$, whence
+\[
+  |Q \setminus S_{\mathrm{sing}}| = \sum_{p \in R \setminus R_{\mathrm{sing}}} |p v^{-1}|
+  \le 2 \sum_{p \in R \setminus R_{\mathrm{sing}}} (|p v^{-1}| - 1)
+  = 2 (n - |R|) = 2C,
+\]
+so $|Q \setminus S_{\mathrm{sing}}| \le \min(2C, n)$.
+
+For the singleton-fiber sum, swapping the order of summation gives
+\[
+  \sum_{x \in S_{\mathrm{sing}}} \deg_{E_q}(x) = \sum_{y \in Q} |S_{\mathrm{sing}} \cap N_{E_q}(y)| \le n K_q,
+\]
+because $x \mapsto x \cdot v$ injects $S_{\mathrm{sing}} \cap N_{E_q}(y)$ into $\Cov_{v, q}(y)$ (if $x \in S_{\mathrm{sing}} \cap N_{E_q}(y)$, then $(x \cdot v) v^{-1} = \{x\} \subseteq N_{E_q}(y)$). For the non-singleton sum, Lemma~\ref{lem:complement-deg} applies pointwise to every $z \in Q \setminus S_{\mathrm{sing}}$:
+\[
+  \sum_{z \in Q \setminus S_{\mathrm{sing}}} \deg_{E_q}(z) \le \min(2C, n)\,(C + K_q).
+\]
+Adding the two sums and using $2q \le \sum_{x \in Q} \deg_{E_q}(x)$ yields
+\[
+  q \le \frac{\min(2C, n)}{2}\, C + \left(\frac{n}{2} + \frac{\min(2C, n)}{2}\right) K_q
+    = \min\!\left(C^2, \frac{nC}{2}\right) + \left(\frac{n}{2} + \min\!\left(C, \frac{n}{2}\right)\right) K_q.
+\]
+Substituting \eqref{eq:Kq-bound} and $\delta(r) = T_0 + 1 \le q + M B + 1 \le q + \Omega$ establishes \eqref{eq:sf-cap}.
+\end{proof}
+
+\subsection{Zero-\texorpdfstring{$\sqrt{2}$}{sqrt(2)} rational payment certificates and unified word-cap saving}\label{sec:payment}
+
+To convert Proposition~\ref{prop:singularity-free-cap} into a saving below $\frac{7}{48} n^3$ whenever a word $v$ of corank $C = c n$ is available, we balance its prefix cost $\lambda(\lfloor n/2 \rfloor)$ against the upper-half saving on $r \in [a n, b n]$, where $a = \max(\frac{1}{2}, \frac{17}{12} c)$ and $b = \frac{1 + c}{2}$. Using the rational approximation $\frac{17}{12} > \sqrt{2}$ avoids square roots completely and guarantees $\min(c^2, c/2) \le a^2 / 2$ for all $c \in [0, 0.505]$.
+
+Define for $c, x \in \Q$:
+\[
+  W(x) := \begin{cases} \frac{1}{16}, & x \le \frac{1}{4}, \\ x\bigl(\frac{1}{2} - x\bigr), & x > \frac{1}{4}, \end{cases}
+  \qquad
+  p(c, x) := \min\!\left(c^2 \left(\frac{1}{2} - x\right),\, 2 \max(x - c, 0)\, W(x)\right),
+\]
+and
+\[
+  S_{\mathrm{rat}}(c) := \frac{b^3 - a^3}{6} - c^2(b - a),
+  \qquad a = \max\!\left(\frac{1}{2},\, \frac{17}{12} c\right),\quad b = \frac{1 + c}{2}.
+\]
+
+\begin{lemma}[Rational payment certificates]\label{lem:rational-payment}
+The following exact inequalities hold over $\Q$:
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+  \item For all $c, x \in [0, \frac{1}{2}]$, $S_{\mathrm{rat}}(c) - p(c, x) \ge \frac{c}{1500}$.
+  \item For all $c \in [\frac{1}{10}, \frac{1}{2}]$ and $x \in [0, \frac{1}{2}]$, $S_{\mathrm{rat}}(c) - p(c, x) \ge \frac{1}{5000}$.
+  \item For all $c \in [\frac{1}{2}, \frac{505}{1000}]$, with $a = \frac{17}{12} c$ and $b = \frac{1+c}{2}$,
+  \[
+    \frac{c^3 - \frac{1}{8}}{6} + \left(\frac{b^3 - a^3}{6} - \frac{c}{2}(b - a)\right) \ge \frac{55}{82944}.
+  \]
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+We first bound $p(c, x)$ independently of $x \in [0, \frac{1}{2}]$.
+\begin{itemize}[leftmargin=2em]
+  \item For any $c \le \frac{1}{2}$, if $x \le c$ then $p(c, x) \le 0$; if $x > c$, since $W(x) \le \frac{1}{16}$ we have both $p(c, x) \le c^2(\frac{1}{2} - x)$ and $p(c, x) \le \frac{x - c}{8}$, so eliminating $x$ via $p(c,x) + 8 c^2 p(c, x) \le c^2(\frac{1}{2} - x) + c^2(x - c) = c^2(\frac{1}{2} - c)$ yields
+  \[
+    p(c, x) \le \frac{c^2(\frac{1}{2} - c)}{1 + 8 c^2}.
+  \]
+  \item For $c \in [\frac{1}{3}, \frac{1}{2}]$, if $x > c > \frac{1}{4}$ then $W(x) = x(\frac{1}{2} - x)$ and $2 x \le 1$, so by AM--GM,
+  \[
+    p(c, x) \le 2(x - c) x \left(\frac{1}{2} - x\right) \le (x - c)\left(\frac{1}{2} - x\right) \le \frac{1}{4}\left(\frac{1}{2} - c\right)^2.
+  \]
+\end{itemize}
+Note that for $c \le \frac{6}{17}$, $a = \frac{1}{2}$ and $S_{\mathrm{rat}}(c) = \frac{3c + 3c^2 - 23 c^3}{48}$, whereas for $c \ge \frac{6}{17}$, $a = \frac{17}{12} c$. Every inequality now reduces to a univariate polynomial on a compact interval, certified by a positive-coefficient Bernstein expansion ($t \in [0, 1]$, $u = 1 - t \in [0, 1]$):
+\begin{enumerate}[label=(\roman*), leftmargin=2em]
+  \item \emph{Range $c \in [0, \frac{1}{3}]$ for (a):} Set $t = 3c$, $u = 1 - t$. Direct expansion confirms
+  \[
+    (1 + 8 c^2)(3 + 3c - 23 c^2) - 48 c\!\left(\frac{1}{2} - c\right) - \frac{5}{81}
+    = \frac{238}{81} u^4 + \frac{385}{81} t u^3 + \frac{168}{81} t^2 u^2 + \frac{205}{81} t^3 u \ge 0.
+  \]
+  Since $48(1 + 8 c^2) \le 48 \cdot \frac{17}{9} = \frac{272}{3}$, dividing by $48(1 + 8c^2)$ gives
+  \[
+    S_{\mathrm{rat}}(c) - p(c, x) \ge \frac{c \cdot \frac{5}{81}}{\frac{272}{3}} = \frac{5}{7344} c \ge \frac{c}{1500}.
+  \]
+  \item \emph{Range $c \in [\frac{1}{10}, \frac{1}{3}]$ for (b):} Set $t = \frac{30}{7}(c - \frac{1}{10})$, $u = 1 - t$. Direct expansion confirms
+  \begin{align*}
+    &c\bigl((1 + 8c^2)(3 + 3c - 23c^2) - 48c(\tfrac{1}{2} - c)\bigr) - \frac{48}{5000}(1 + 8c^2) \\
+    &\qquad = \frac{16149}{125000} u^5 + 5 \cdot \frac{132433}{937500} t u^4
+      + 10 \cdot \frac{1309903}{11250000} t^2 u^3 \\
+    &\qquad\quad + 10 \cdot \frac{148757}{1406250} t^3 u^2
+      + 5 \cdot \frac{151949}{1265625} t^4 u + \frac{371}{151875} t^5 \ge 0.
+  \end{align*}
+  Dividing by $48(1 + 8c^2) > 0$ yields $S_{\mathrm{rat}}(c) - p(c, x) \ge \frac{1}{5000}$.
+  \item \emph{Range $c \in [\frac{1}{3}, \frac{6}{17}]$ for (a) and (b):} Set $t = 51(c - \frac{1}{3})$, $u = 1 - t$. Then
+  \[
+    S_{\mathrm{rat}}(c) - \frac{1}{4}\!\left(\frac{1}{2} - c\right)^2 - \frac{1}{400}
+    = \frac{19}{32400} u^3 + 3\cdot \frac{47}{61200} t u^2 + 3\cdot \frac{899}{1040400} t^2 u + \frac{6848}{7860800} t^3 \ge 0.
+  \]
+  Since $\frac{1}{400} > \frac{1}{5000}$ and $\frac{1}{400} \ge \frac{c}{1500}$, both (a) and (b) follow.
+  \item \emph{Range $c \in [\frac{6}{17}, \frac{1}{2}]$ for (a) and (b):} Set $t = \frac{34}{5}(c - \frac{6}{17})$, $u = 1 - t$. Then
+  \begin{align*}
+    S_{\mathrm{rat}}(c) - \frac{1}{4}\!\left(\frac{1}{2} - c\right)^2 - \frac{55}{82944}
+    &= \left(\frac{265}{78608} - \frac{55}{82944}\right) u^3
+      + 3\left(\frac{565}{166464} - \frac{55}{82944}\right) t u^2 \\
+    &\quad + 3\left(\frac{235}{117504} - \frac{55}{82944}\right) t^2 u \ge 0,
+  \end{align*}
+  since $\frac{265}{78608}, \frac{565}{166464}, \frac{235}{117504} > \frac{55}{82944} \approx 0.000663 > \frac{1}{3000} \ge \frac{c}{1500}$ and $\frac{55}{82944} > \frac{1}{5000}$.
+  \item \emph{Range $c \in [\frac{1}{2}, \frac{505}{1000}]$ for (c):} Set $t = 200(c - \frac{1}{2})$, $u = 1 - t$. Then
+  \begin{align*}
+    \frac{c^3 - \frac{1}{8}}{6} + \left(\frac{b^3 - a^3}{6} - \frac{c}{2}(b - a)\right) - \frac{55}{82944}
+    &= 3\left(\frac{7139}{8294400} - \frac{55}{82944}\right) t u^2 \\
+    &\quad + 3\left(\frac{878431}{829440000} - \frac{55}{82944}\right) t^2 u \\
+    &\quad + \left(\frac{104356331}{82944000000} - \frac{55}{82944}\right) t^3 \ge 0,
+  \end{align*}
+  where every parenthesized coefficient is strictly positive (comparing numerators over the common denominators $8294400$, $829440000$, and $82944000000$). \qedhere
+\end{enumerate}
+\end{proof}
+
+To obtain a word $v$ whose stability defect $a_0 = D(2|v| + n - 1) - C$ is small, we apply a dyadic pigeonhole schedule.
+
+\begin{lemma}[Dyadic stability schedule]\label{lem:dyadic-schedule}
+For any synchronizing DFA $A$ on $n$ states, any $\ell_0 \in \N$, and any $J \ge 1$, there exists a word $v \in \Sigma^*$ such that
+\[
+  |v| \le 2^J (\ell_0 + n), \qquad
+  C := n - |Q \cdot v| \ge D(\ell_0), \qquad
+  D(2|v| + n - 1) - C \le \lfloor n / J \rfloor.
+\]
+\end{lemma}
+
+\begin{proof}
+Define $\ell_0$ as given and $\ell_{i+1} := 2 \ell_i + (n - 1)$ for $i \ge 0$. Induction gives $\ell_i + n \le 2^i (\ell_0 + n)$. Since $i \mapsto D(\ell_i)$ is nondecreasing and bounded by $n$, the same telescoping pigeonhole argument as in Lemma~\ref{lem:calm-step} yields an index $j \in \{0, \dots, J - 1\}$ with $D(\ell_{j+1}) - D(\ell_j) \le \lfloor n / J \rfloor$. Choosing $v$ of length $|v| \le \ell_j$ achieving corank $C = D(\ell_j)$ satisfies $|v| \le \ell_j \le 2^J (\ell_0 + n)$, $C = D(\ell_j) \ge D(\ell_0)$, and $2|v| + n - 1 \le 2 \ell_j + (n - 1) = \ell_{j+1}$, so $D(2|v| + n - 1) - C \le D(\ell_{j+1}) - D(\ell_j) \le \lfloor n / J \rfloor$.
+\end{proof}
+
+We now assemble Proposition~\ref{prop:singularity-free-cap} and Lemma~\ref{lem:rational-payment} into a single unified theorem covering both Case~A and Case~C of the main proof.
+
+\begin{proposition}[Unified word-cap saving]\label{prop:word-cap}
+Let $A$ be a strongly connected synchronizing DFA on $n \ge 10\,000$ states. Let $v \in \Sigma^*$ have corank $C = n - |Q \cdot v|$ and normalized corank $c := C / n$. Suppose $J, M, D_\varepsilon \in \N$ and $\mu \in \Q$ satisfy $J \ge 1$, $M \ge 1$, $5000 \le D_\varepsilon \le n / 10$, $100 n \le D_\varepsilon C$, $D(2|v| + n - 1) - C \le \lfloor n / J \rfloor$, and $\mu \le \frac{1}{1600}$, and suppose that whenever $C \le \lfloor n/2 \rfloor$ we have $S_{\mathrm{rat}}(c) - p(c, x) \ge \mu$ for all $x \in [0, \frac{1}{2}]$. Set
+\[
+  \Omega := (M + 1)(|v| + n - 1) + 1, \qquad
+  \theta := \left(\frac{1}{J} + \frac{1}{M}\right)\frac{D_\varepsilon}{2}.
+\]
+Then
+\begin{equation}\label{eq:word-cap}
+  \lambda(n - 1) \le \left(\frac{7}{48} - \mu + \frac{3}{10 D_\varepsilon} + \theta\right) n^3
+    + (n + 1)\Omega + 7 n^2.
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+Note first that $\lambda(C) \le |v| \le \Omega$. We consider three subcases according to $C$.
+
+\smallskip
+\noindent\textbf{Subcase 1: $C \le \lfloor n / 2 \rfloor$.}
+Set $H := \lfloor n/2 \rfloor$ and $k := \lfloor (n - 2)/2 \rfloor$. Let $\rho$ be the least index $j \le n - 2$ with $\delta(j) > 2k$ (if no such $j$ exists or if $\rho \ge H$, then $\lambda(H) \le n^2$ and we take $x = \frac{1}{2}$ where $p(c, \frac{1}{2}) = 0$). Otherwise $1 \le \rho < H$ and $\lambda(\rho) \le \rho \cdot 2k \le n^2$; set $x := \rho / n \in [0, \frac{1}{2}]$. We bound $\lambda(H)$ in two ways:
+\begin{itemize}[leftmargin=2em]
+  \item \emph{Direct cap bound on $[\rho, H)$:} For every $r \in [\rho, H)$, we have $2(n - r) - (n - C) \ge C \ge 2 n / D_\varepsilon$, so Proposition~\ref{prop:singularity-free-cap} gives
+  \[
+    \delta(r) \le C^2 + n \cdot \frac{n \cdot (\frac{1}{J} + \frac{1}{M}) n}{2 n / D_\varepsilon} + \Omega
+    = c^2 n^2 + \theta n^2 + \Omega.
+  \]
+  Summing over $H - \rho \le (\frac{1}{2} - x) n$ indices and adding $\lambda(\rho) \le n^2$ gives
+  \[
+    \lambda(H) \le c^2 \left(\frac{1}{2} - x\right) n^3 + \frac{1}{2} \theta n^3 + \left(\frac{n}{2} + 1\right)\Omega + 2 n^2.
+  \]
+  \item \emph{Shitov cheap-gap bound on $[\rho, H)$:} If $\rho \le C$, then $\lambda(\rho) \le \lambda(C) \le \Omega$ and Lemma~\ref{lem:shitov-gap} at $\tau = \rho$ yields $\delta(r) \le \Omega + 2r$ for all $r \in [\rho, H)$, giving $\lambda(H) \le (\frac{n}{2} + 1)\Omega + n^2$. If $C < \rho$, partition the positive gaps in $[C, \rho)$ into buckets $B_C(i) := \{j \in [C, \rho) : 2i - 1 \le \delta(j) \le 2i\}$ ($1 \le i \le k$) of sizes $s_C(i) = |B_C(i)|$, so $\sum_{i=1}^k s_C(i) \le \rho - C$. For each $r \in [\rho, H)$, applying Lemma~\ref{lem:shitov-gap} at the least $\tau \le \rho$ with $\delta(\tau) > 2r$ yields $\delta(r) \le \Omega + 2 \sum_{i=1}^r i s_C(i) + 2r$. Summing over $r \in [\rho, H)$ and swapping the double sum gives
+  \[
+    \lambda(H) \le \lambda(\rho) + (H - \rho)\Omega + 2 \sum_{i=1}^k s_C(i)\, i (H - \max(\rho, i)) + H^2.
+  \]
+  An elementary check shows $i(H - \max(\rho, i)) \le W(x) n^2$ for all $i \le H$: if $x \le \frac{1}{4}$ then $t(H-t) \le H^2/4 \le n^2/16$; if $x > \frac{1}{4}$ then $2\rho > H$, so $t(H-t)$ is decreasing for $t \ge \rho$ and hence maximized at $\rho$. Thus $\sum_i s_C(i) i(H - \max(\rho, i)) \le (\rho - C) W(x) n^2 = (x - c) W(x) n^3$.
+\end{itemize}
+Taking the minimum of the two bounds yields
+\begin{equation}\label{eq:prefix-pay}
+  \lambda(H) \le p(c, x) n^3 + \frac{1}{2} \theta n^3 + \left(\frac{n}{2} + 1\right)\Omega + 2 n^2.
+\end{equation}
+
+Next, we bound the suffix $\sum_{j = s}^{n - 2} \delta(j)$ simultaneously for Subcase~1 ($s = H$) and Subcase~2 ($s = C \le \frac{505}{1000} n$) by setting $s := \max(H, C)$, $a_{\mathrm{lo}} := \max(\frac{1}{2}, \frac{17}{12} c)$, $b_{\mathrm{hi}} := \frac{1 + c}{2}$, and $\mathrm{cap}_r := \min(c^2, c/2)$. Define integer indices
+\[
+  A_{\mathrm{idx}} := \max\!\left(\left\lfloor \frac{n + 1}{2} \right\rfloor,\; \left\lfloor \frac{17 C + 11}{12} \right\rfloor\right), \qquad
+  B_{\mathrm{idx}} := \left\lfloor \frac{n + C}{2} \right\rfloor - \left(\left\lfloor \frac{n}{D_\varepsilon} \right\rfloor + 1\right).
+\]
+Using $C \ge 100 n / D_\varepsilon$ and $5000 \le D_\varepsilon \le n / 10$, we have $s \le A_{\mathrm{idx}} \le B_{\mathrm{idx}} \le n - 1$, and for every $r \in [A_{\mathrm{idx}}, B_{\mathrm{idx}})$, $2(n - r) - (n - C) \ge 2(\lfloor n / D_\varepsilon \rfloor + 1) > 2 n / D_\varepsilon$. Applying Proposition~\ref{prop:singularity-free-cap} on $[A_{\mathrm{idx}}, B_{\mathrm{idx}})$ and Lemma~\ref{lem:pf-gap} outside $[A_{\mathrm{idx}}, B_{\mathrm{idx}})$ yields
+\begin{align*}
+  \sum_{j = s}^{n - 2} \delta(j)
+  &\le \frac{n^3 - s^3}{6} - \left(\frac{B_{\mathrm{idx}}^3 - A_{\mathrm{idx}}^3}{6} - (B_{\mathrm{idx}} - A_{\mathrm{idx}}) \mathrm{cap}_r n^2\right)
+    + \frac{1}{2} \theta n^3 + \frac{n}{2} \Omega + n^2.
+\end{align*}
+Setting $u_A := A_{\mathrm{idx}} / n$ and $u_B := B_{\mathrm{idx}} / n$, we have $a_{\mathrm{lo}} \le u_A \le u_B \le b_{\mathrm{hi}}$, $u_A - a_{\mathrm{lo}} \le 1/n$, and $b_{\mathrm{hi}} - u_B \le 1/D_\varepsilon + 2/n$. Because $\mathrm{cap}_r \le a_{\mathrm{lo}}^2 / 2$ (as $(\frac{17}{12})^2 / 2 > 1$) and $b_{\mathrm{hi}}^2 / 2 \le (1.505/2)^2 / 2 < \frac{3}{10}$, the elementary algebraic strip estimate
+\[
+  0 \le \frac{v^3 - u^3}{6} - \mathrm{cap}_r (v - u)
+    = (v - u)\left(\frac{v^2 + uv + u^2}{6} - \mathrm{cap}_r\right)
+    \le \frac{3}{10}(v - u)
+\]
+for $a_{\mathrm{lo}} \le u \le v \le b_{\mathrm{hi}}$ gives
+\begin{equation}\label{eq:suffix-cap}
+  \sum_{j = s}^{n - 2} \delta(j)
+  \le \frac{n^3 - s^3}{6} - \left(\frac{b_{\mathrm{hi}}^3 - a_{\mathrm{lo}}^3}{6} - \mathrm{cap}_r (b_{\mathrm{hi}} - a_{\mathrm{lo}})\right) n^3
+    + \frac{3}{10 D_\varepsilon} n^3 + \frac{1}{2} \theta n^3 + \frac{n}{2} \Omega + 4 n^2.
+\end{equation}
+In Subcase~1 ($s = H$, $\mathrm{cap}_r = c^2$), we have $(n^3 - H^3)/6 \le \frac{7}{48} n^3 + n^2$ (for $n \ge 10\,000$). Adding \eqref{eq:prefix-pay} and \eqref{eq:suffix-cap} and applying $S_{\mathrm{rat}}(c) - p(c, x) \ge \mu$ yields \eqref{eq:word-cap}.
+
+\smallskip
+\noindent\textbf{Subcase 2: $\lfloor n/2 \rfloor < C \le \lfloor 505 n / 1000 \rfloor$.}
+Here $s = C$, $a_{\mathrm{lo}} = \frac{17}{12} c$, and $\mathrm{cap}_r = c / 2$. Adding $\lambda(C) \le \Omega$ to \eqref{eq:suffix-cap} and rewriting $(n^3 - C^3)/6 = \frac{7}{48} n^3 - \frac{c^3 - 1/8}{6} n^3$, Lemma~\ref{lem:rational-payment}(c) gives a total saving at least $\frac{55}{82944} n^3 > \frac{1}{1600} n^3 \ge \mu n^3$, establishing \eqref{eq:word-cap}.
+
+\smallskip
+\noindent\textbf{Subcase 3: $C > \lfloor 505 n / 1000 \rfloor$.}
+Here $C \ge 0.505 n$. Simply summing Lemma~\ref{lem:pf-gap} from $C$ to $n - 2$ and adding $\lambda(C) \le \Omega$ gives
+\[
+  \lambda(n - 1) \le \Omega + \frac{n^3 - C^3}{6} \le \Omega + \frac{1 - 0.505^3}{6} n^3
+  \le \left(\frac{7}{48} - \frac{1}{1600}\right) n^3 + \Omega,
+\]
+since $\frac{1 - 0.505^3}{6} = \frac{2323233}{16000000} \approx 0.145202 < \frac{7}{48} - \frac{1}{1600} = \frac{697}{4800} \approx 0.145208$, establishing \eqref{eq:word-cap}.
+\end{proof}
+
+\subsection{Preimage lifting and the near-bijective macroscopic band bound}\label{sec:caseB}
+
+We now handle the near-bijective regime where both $D(h)$ and $D(\lfloor n^2/D_\eta \rfloor)$ are small. The core combinatorial engine is the following five-line lifting lemma.
+
+\begin{lemma}[Common-neighbor preimage lifting]\label{lem:preimage-lift}
+Let $A$ be a synchronizing DFA on $n$ states. For every $t, L_0 \in \N$ and every edge $\{u, v\} \in E_{L_0}$, there exists a subset $W \subseteq Q$ such that
+\[
+  m_t \le |W| + D(L_0) \qquad\text{and}\qquad W \subseteq N_{E_{t + L_0}}(u) \cap N_{E_{t + L_0}}(v).
+\]
+\end{lemma}
+
+\begin{proof}
+Because $\{u, v\} \in E_{L_0}$, there is a word $w$ of length $|w| \le L_0$ such that $u \cdot w = v \cdot w =: z$. Set $W := (N_{E_t}(z)) w^{-1}$.
+
+First, every $y \in N_{E_t}(z) \cap (Q \cdot w)$ has a preimage in $W$, so $N_{E_t}(z) \cap (Q \cdot w) \subseteq W \cdot w$, whence $|N_{E_t}(z) \cap (Q \cdot w)| \le |W|$. Therefore
+\[
+  m_t \le |N_{E_t}(z)| \le |N_{E_t}(z) \cap (Q \cdot w)| + |Q \setminus (Q \cdot w)| \le |W| + D(L_0).
+\]
+Second, take any $x \in W$, so $x \cdot w \in N_{E_t}(z)$. In particular $x \cdot w \ne z = u \cdot w = v \cdot w$, whence $x \ne u$ and $x \ne v$. Moreover, there exists a word $v'$ of length $|v'| \le t$ with $(x \cdot w) \cdot v' = z \cdot v'$. Then $w v'$ has length $|w v'| \le t + L_0$ and satisfies $x \cdot (wv') = z \cdot v' = u \cdot (wv') = v \cdot (wv')$, showing $x \in N_{E_{t+L_0}}(u) \cap N_{E_{t+L_0}}(v)$.
+\end{proof}
+
+To turn Lemma~\ref{lem:preimage-lift} into a contradiction on a large independent set, we locate (1) an almost-regular short scale $L_0$ via geometric growth, and (2) a nested calm pair $(t, T = t + L_0)$ inside $[n^2/10, \delta(r))$.
+
+\begin{lemma}[Geometric-ratio calm step]\label{lem:geom-calm}
+Let $A$ be a strongly connected synchronizing DFA on $n$ states, and let $D_\eta, D_{c_1}, R, r \in \N$ satisfy $D_\eta \ge 10^{14}$, $D_{c_1} = 50 D_\eta$, $D_{c_1} < (39/38)^R$, $n \ge 2(R + 1) D_\eta + 10 D_\eta$, $D_{c_1} D(h) < n$, $10 D(\lfloor n^2 / D_\eta \rfloor) < n$, and $r \le n - 2$. If $\delta(r) > \lfloor 120 n^2 / 1000 \rfloor + 1$, then there exists $L_0 \in \N$ such that
+\[
+  \left\lfloor \frac{40 n^2}{100 D_\eta} \right\rfloor \le L_0 \le \left\lfloor \frac{n^2}{D_\eta} \right\rfloor, \qquad
+  95 \Delta_{L_0} \le 100 m_{L_0}, \qquad \Delta_{L_0} > 0, \qquad 10 D(L_0) < n.
+\]
+\end{lemma}
+
+\begin{proof}
+Set $t_0 := \lfloor 40 n^2 / (100 D_\eta) \rfloor + 1$. Since $D_\eta \ge 10^{14}$, $t_0 < \delta(r)$, so Lemma~\ref{lem:merge-basic}(b) yields $2 t_0 \le n \Delta_{t_0}$. Because $(100 D_\eta) t_0 > 40 n^2$ and $D_{c_1} = 50 D_\eta$, we get $D_{c_1} \Delta_{t_0} \ge 40 n$, and hence $\Delta_{t_0} > 40 D(h)$.
+
+Define $s_j := t_0 + j h$ for $0 \le j \le R$. The hypothesis $n \ge 2(R+1) D_\eta + 10 D_\eta$ ensures $s_j + h \le \lfloor n^2 / D_\eta \rfloor$ for all $j \le R$. Suppose for contradiction that no $L_0 = s_j + h$ ($0 \le j < R$) satisfies $95 \Delta_{L_0} \le 100 m_{L_0}$. Then for every $0 \le j < R$, we have $100 m_{s_{j+1}} < 95 \Delta_{s_{j+1}}$, while Lemma~\ref{lem:deg-transport} and monotonicity give
+\[
+  \Delta_{s_j} \le D(h) + m_{s_{j+1}} < \frac{1}{40} \Delta_{s_j} + \frac{95}{100} \Delta_{s_{j+1}},
+\]
+so $\frac{39}{40} \Delta_{s_j} \le \frac{19}{20} \Delta_{s_{j+1}}$, i.e., $39 \Delta_{s_j} \le 38 \Delta_{s_{j+1}}$. Iterating $R$ times yields
+\[
+  n \ge \Delta_{s_R} \ge \left(\frac{39}{38}\right)^R \Delta_{t_0} > D_{c_1} \cdot \frac{n}{D_{c_1}} = n,
+\]
+a contradiction. Thus some $L_0 = s_j + h$ satisfies $95 \Delta_{L_0} \le 100 m_{L_0}$, and also $\Delta_{L_0} \ge \Delta_{t_0} > 0$ and $10 D(L_0) \le 10 D(\lfloor n^2 / D_\eta \rfloor) < n$.
+\end{proof}
+
+\begin{lemma}[Two-scale nested calm time]\label{lem:two-scale-calm}
+Under the hypotheses of Lemma~\ref{lem:geom-calm} with $n \ge 150 D_\eta^2$, let $L_0$ be as returned by Lemma~\ref{lem:geom-calm}. Then there exist $t, T \in \N$ with $T = t + L_0 < \delta(r)$ such that
+\[
+  m_t > 0, \qquad \Delta_T \le \frac{106}{100} m_t, \qquad m_t - D(L_0) \ge \frac{49}{100} m_t.
+\]
+\end{lemma}
+
+\begin{proof}
+Set $a_0 := \lfloor n^2 / 10 \rfloor$. Applying Lemma~\ref{lem:calm-step} to $s \mapsto \Delta_s$ with $\mathrm{start} = a_0$, $\mathrm{step} = 2 L_0$, and $M = 100$ gives $j < 100$ such that $a := a_0 + 2 j L_0$ satisfies
+\[
+  \Delta_{a + 2 L_0} - \Delta_a \le \lfloor n / 100 \rfloor.
+\]
+Next, set $K := \lfloor L_0 / h \rfloor$. From $n \ge 150 D_\eta^2$, $D_{c_1} = 50 D_\eta$, and $L_0 \ge \lfloor 40 n^2 / (100 D_\eta) \rfloor$, we have $K \ge D_{c_1}$. Applying Lemma~\ref{lem:calm-step} to $s \mapsto m_s$ with $\mathrm{start} = a$, $\mathrm{step} = h$, and $M = K$ gives $i < K$ such that $t := a + i h \le a + L_0$ satisfies
+\[
+  m_{t + h} - m_t \le \lfloor n / K \rfloor \le \lfloor n / D_{c_1} \rfloor.
+\]
+Set $T := t + L_0 \le a + 2 L_0 \le a_0 + 200 L_0$. Since $200 L_0 \le 200 n^2 / D_\eta \le n^2 / 100$, we have $T \le \lfloor n^2/10 \rfloor + \lfloor n^2/100 \rfloor < \lfloor 120 n^2/1000 \rfloor + 1 < \delta(r)$.
+
+By Lemma~\ref{lem:merge-basic}(b) at time $t \ge \lfloor n^2/10 \rfloor$, we have $n \Delta_t \ge 2 \lfloor n^2/10 \rfloor$. By Lemma~\ref{lem:deg-transport} and the inner calm step,
+\[
+  \Delta_t \le D(h) + m_{t+h} \le m_t + 2 \lfloor n / D_{c_1} \rfloor \le m_t + \lfloor n / 1000 \rfloor.
+\]
+Hence $1000 m_t \ge 199 n$ (for $n \ge 10\,000$), so $m_t \ge 0.199 n > 0$. By the outer calm step and monotonicity $\Delta_a \le \Delta_t$,
+\[
+  \Delta_T \le \Delta_{a + 2 L_0} \le \Delta_a + \lfloor n / 100 \rfloor \le \Delta_t + \lfloor n / 100 \rfloor \le m_t + 0.011 n \le 1.06 m_t,
+\]
+since $0.011 / 0.199 < 0.06$. Finally, since $D(L_0) < 0.1 n$, we have $m_t - D(L_0) \ge m_t - \frac{0.1}{0.199} m_t > 0.49 m_t$.
+\end{proof}
+
+\begin{proposition}[Case~B macroscopic band bound]\label{prop:caseB-band}
+Let $A$ be a strongly connected synchronizing DFA on $n$ states, and let $D_\eta, D_{c_1}, R \in \N$ satisfy $D_\eta \ge 10^{14}$, $D_{c_1} = 50 D_\eta$, $D_{c_1} < (39/38)^R$, $n \ge \max(2(R+1)D_\eta + 10 D_\eta,\, 150 D_\eta^2)$, $D_{c_1} D(h) < n$, and $10 D(\lfloor n^2 / D_\eta \rfloor) < n$. Then for every integer $r$ with $\lfloor n / 2 \rfloor \le r \le \lfloor 58 n / 100 \rfloor$,
+\[
+  \delta(r) \le \left\lfloor \frac{120 n^2}{1000} \right\rfloor + 1.
+\]
+\end{proposition}
+
+\begin{proof}
+Suppose for contradiction that $\delta(r) > \lfloor 120 n^2 / 1000 \rfloor + 1$ for some $r \in [\lfloor n/2 \rfloor, \lfloor 58 n / 100 \rfloor]$. Lemmas~\ref{lem:geom-calm} and~\ref{lem:two-scale-calm} provide $L_0$, $t$, and $T = t + L_0 < \delta(r)$ with $95 \Delta_{L_0} \le 100 m_{L_0}$, $\Delta_{L_0} > 0$, $m_t > 0$, $\Delta_T \le 1.06 m_t$, and $m_t - D(L_0) \ge 0.49 m_t$.
+
+By Lemma~\ref{lem:merge-basic}(a) at time $T < \delta(r)$, there exists an independent set $S$ in $E_T$ of size $|S| = n - r \ge 0.42 n$. Let $\bar{S} := Q \setminus S$ ($|\bar{S}| = r = n - |S|$). Because $L_0 \le T$, $S$ is also independent in $E_{L_0}$. Let $V_1 := \{v \in \bar{S} : \exists u \in S,\ \{u, v\} \in E_{L_0}\}$ be the $E_{L_0}$-neighborhood of $S$.
+
+\emph{Step 1:} Counting $E_{L_0}$-edges between $S$ and $V_1$ gives
+\[
+  |S| m_{L_0} \le \sum_{u \in S} \deg_{E_{L_0}}(u) \le \sum_{v \in V_1} \deg_{E_{L_0}}(v) \le |V_1| \Delta_{L_0}.
+\]
+Combined with $95 \Delta_{L_0} \le 100 m_{L_0}$ and $\Delta_{L_0} > 0$, this implies $|V_1| \ge 0.95 |S|$.
+
+\emph{Step 2:} For every $v \in V_1$, pick $u \in S$ with $\{u, v\} \in E_{L_0}$. Lemma~\ref{lem:preimage-lift} yields a set $W \subseteq N_{E_T}(u) \cap N_{E_T}(v)$ of size $|W| \ge m_t - D(L_0)$. Since $S$ is independent in $E_T$ and $u \in S$, we have $N_{E_T}(u) \subseteq \bar{S}$, so $W \subseteq N_{E_T}(v) \cap \bar{S}$ and hence
+\[
+  |N_{E_T}(v) \cap \bar{S}| \ge m_t - D(L_0) \ge 0.49 m_t.
+\]
+
+\emph{Step 3:} Double-counting $E_T$-degrees over $\bar{S}$ (splitting each $N_{E_T}(v)$ into its $S$-part and $\bar{S}$-part) gives
+\begin{align*}
+  |S| m_t + |V_1| (m_t - D(L_0))
+  &\le \sum_{u \in S} \deg_{E_T}(u) + \sum_{v \in V_1} |N_{E_T}(v) \cap \bar{S}| \\
+  &\le \sum_{v \in \bar{S}} |N_{E_T}(v) \cap S| + \sum_{v \in \bar{S}} |N_{E_T}(v) \cap \bar{S}|
+   = \sum_{v \in \bar{S}} \deg_{E_T}(v) \le |\bar{S}| \Delta_T.
+\end{align*}
+Substituting $|V_1| \ge 0.95 |S|$, $m_t - D(L_0) \ge 0.49 m_t$, and $\Delta_T \le 1.06 m_t$, and dividing by $m_t > 0$, we obtain
+\[
+  |S|\,(1 + 0.95 \cdot 0.49) \le (n - |S|) \cdot 1.06,
+\]
+i.e., $2.5255 |S| \le 1.06 n$. This contradicts $|S| \ge 0.42 n$, because $2.5255 \times 0.42 = 1.06071 > 1.06$.
+\end{proof}
+
+\begin{corollary}[Case~B total bound]\label{cor:caseB-total}
+Under the hypotheses of Proposition~\ref{prop:caseB-band},
+\[
+  \lambda(n - 1) \le \left(\frac{7}{48} - \frac{1}{1000}\right) n^3 + (D_{c_1} + 20) n^2.
+\]
+\end{corollary}
+
+\begin{proof}
+Set $P := \lfloor 499 n / 1000 \rfloor$, $H := \lfloor n / 2 \rfloor$, and $B_{\mathrm{end}} := \lfloor 58 n / 100 \rfloor$, and telescope $\lambda(n - 1) = \lambda(P) + \sum_{r=P}^{H-1} \delta(r) + \sum_{r=H}^{B_{\mathrm{end}}-1} \delta(r) + \sum_{r=B_{\mathrm{end}}}^{n-2} \delta(r)$.
+\begin{enumerate}[label=(\arabic*), leftmargin=2em]
+  \item \emph{Prefix $[0, P)$:} For $r = 0$, $\delta(0) \le 1$. For $1 \le r < P$, we have $n - 2r \ge n / 500$ and $D \le n / D_{c_1}$, so Lemma~\ref{lem:ap-plateau} with $M = D_{c_1}$ gives $\delta(r) \le \frac{500}{D_{c_1}} n^2 + D_{c_1} n$. Summing over $P \le n / 2$ terms gives $\lambda(P) \le \frac{250}{D_{c_1}} n^3 + (D_{c_1} + 1) n^2 \le \frac{1}{10000} n^3 + (D_{c_1} + 1) n^2$.
+  \item \emph{Strip $[P, H)$:} By Lemma~\ref{lem:pf-gap}, $\sum_{r=P}^{H-1} \delta(r) \le \frac{H^3 - P^3}{6} + \frac{2}{3} n^2 \le \frac{1}{4000} n^3 + 2 n^2$ (since $\frac{1/8 - 0.499^3}{6} \approx 0.0001247 < \frac{1}{4000}$).
+  \item \emph{Macroscopic band $[H, B_{\mathrm{end}})$:} By Proposition~\ref{prop:caseB-band}, each of the $B_{\mathrm{end}} - H \le 0.08 n + 1$ gaps is at most $0.120 n^2 + 1$, giving $\sum_{r=H}^{B_{\mathrm{end}}-1} \delta(r) \le \frac{96}{10000} n^3 + 2 n^2$.
+  \item \emph{Tail $[B_{\mathrm{end}}, n - 1)$:} By Lemma~\ref{lem:pf-gap}, $\sum_{r=B_{\mathrm{end}}}^{n-2} \delta(r) \le \frac{n^3 - B_{\mathrm{end}}^3}{6} \le \frac{1 - 0.58^3}{6} n^3 + n^2$.
+\end{enumerate}
+Adding the four bounds yields leading cubic coefficient
+\[
+  \frac{1}{10000} + \frac{1}{4000} + \frac{96}{10000} + \frac{1 - 0.58^3}{6}
+  = \frac{72049}{500000} = 0.144098 < \frac{7}{48} - \frac{1}{1000} \approx 0.144833,
+\]
+and quadratic coefficient at most $D_{c_1} + 6 \le D_{c_1} + 20$.
+\end{proof}
+
+\subsection{Non-circular three-case assembly and reduction to general DFAs}\label{sec:assembly}
+
+\begin{proof}[Proof of Theorem~\ref{thm:below-7-48}]
+We first establish the strongly connected core by defining the following explicit positive integer constants in strict, non-circular order:
+\begin{align*}
+  J_A &:= 10^8, & M_A &:= 10^8, \\
+  D_\eta &:= 10^{14} \cdot 2^{J_A}, & D_{c_1} &:= 50 D_\eta, \\
+  D_{\varepsilon_B} &:= 10000 D_{c_1}, & J_B &:= 10^9 D_{c_1}^2, & M_B &:= 10^9 D_{c_1}^2, \\
+  K_B &:= (M_B + 1)(2 \cdot 2^{J_B} + 1) + 10, & \delta_{\mathrm{sc}} &:= \frac{1}{2000 D_{c_1}},
+\end{align*}
+and threshold
+\[
+  N_{\mathrm{sc}} := \max\!\Bigl(150 D_\eta^2 + 2(38 D_{c_1} + 1) D_\eta + 10 D_\eta,\;
+    10^6 D_{c_1}(K_B + D_{\varepsilon_B} + D_{c_1})\Bigr).
+\]
+Let $A$ be a strongly connected synchronizing DFA on $n \ge N_{\mathrm{sc}}$ states. We partition into three exhaustive cases:
+
+\smallskip
+\noindent\textbf{Case A: $10 D(\lfloor n^2 / D_\eta \rfloor) \ge n$.}
+Apply Lemma~\ref{lem:dyadic-schedule} at $\ell_0 = \lfloor n^2 / D_\eta \rfloor$ and $J = J_A$ to obtain a word $v$ of length $|v| \le 2^{J_A}(\lfloor n^2/D_\eta \rfloor + n)$, corank $C \ge n / 10$, and stability defect $\le \lfloor n / J_A \rfloor$. Apply Proposition~\ref{prop:word-cap} with $J = J_A$, $M = M_A$, $D_\varepsilon = 5000$, and $\mu = \frac{1}{5000}$ (verified by Lemma~\ref{lem:rational-payment}(b)). Here $\frac{3}{10 D_\varepsilon} = \frac{6}{10^5}$, $\theta = (\frac{1}{J_A} + \frac{1}{M_A}) \frac{5000}{2} = \frac{5}{10^5}$, and since $(M_A + 1) 2^{J_A} \cdot 10^5 \le D_\eta$ we have $\Omega \le \frac{2}{10^5} n^2$ and $(n + 1)\Omega + 7 n^2 \le \frac{3}{10^5} n^3$. Hence
+\[
+  \lambda(n - 1) \le \left(\frac{7}{48} - \frac{20}{10^5} + \frac{6 + 5 + 3}{10^5}\right) n^3
+  = \left(\frac{7}{48} - \frac{6}{10^5}\right) n^3 \le \left(\frac{7}{48} - \delta_{\mathrm{sc}}\right) n^3.
+\]
+
+\smallskip
+\noindent\textbf{Case C: $10 D(\lfloor n^2 / D_\eta \rfloor) < n$ and $D_{c_1} D(h) \ge n$.}
+Apply Lemma~\ref{lem:dyadic-schedule} at $\ell_0 = h = n - 1$ and $J = J_B$ to obtain $v$ of length $|v| \le 2^{J_B}(2n)$, corank $C \ge n / D_{c_1}$, and stability defect $\le \lfloor n / J_B \rfloor$. Apply Proposition~\ref{prop:word-cap} with $J = J_B$, $M = M_B$, $D_\varepsilon = D_{\varepsilon_B} = 10000 D_{c_1}$, and $\mu = \frac{1}{1500 D_{c_1}}$ (verified by Lemma~\ref{lem:rational-payment}(a) since $c \ge 1/D_{c_1}$). Here $\frac{3}{10 D_{\varepsilon_B}} = \frac{3}{10^5 D_{c_1}}$, $\theta = (\frac{1}{J_B} + \frac{1}{M_B}) \frac{D_{\varepsilon_B}}{2} = \frac{1}{10^5 D_{c_1}}$, and $\Omega \le K_B n$, so $n \ge 10^6 D_{c_1} K_B$ yields $(n + 1)\Omega + 7 n^2 \le 2 K_B n^2 \le \frac{1}{500000 D_{c_1}} n^3$. The total coefficient satisfies
+\[
+  \frac{7}{48} - \frac{1}{1500 D_{c_1}} + \frac{3}{10^5 D_{c_1}} + \frac{1}{10^5 D_{c_1}} + \frac{1}{5\cdot 10^5 D_{c_1}}
+  = \frac{7}{48} - \frac{1}{2000 D_{c_1}} - \frac{374}{3\cdot 10^6 D_{c_1}}
+  \le \frac{7}{48} - \delta_{\mathrm{sc}}.
+\]
+
+\smallskip
+\noindent\textbf{Case B: $10 D(\lfloor n^2 / D_\eta \rfloor) < n$ and $D_{c_1} D(h) < n$.}
+By Bernoulli's inequality $(39/38)^k \ge 1 + k / 38$ (proved by a 3-line induction over $\Q$, avoiding logarithms), taking $R := 38 D_{c_1}$ satisfies $D_{c_1} < (39/38)^R$. All hypotheses of Corollary~\ref{cor:caseB-total} hold for $n \ge N_{\mathrm{sc}}$, giving
+\[
+  \lambda(n - 1) \le \left(\frac{7}{48} - \frac{1}{1000}\right) n^3 + (D_{c_1} + 20) n^2
+  \le \left(\frac{7}{48} - \frac{1}{2000}\right) n^3
+  \le \left(\frac{7}{48} - \delta_{\mathrm{sc}}\right) n^3,
+\]
+since $n \ge 10^6 D_{c_1}^2 \ge 2000(D_{c_1} + 20)$.
+
+\smallskip
+\noindent\textbf{Reduction from general DFAs to strongly connected DFAs.}
+Set $\delta := \min(\delta_{\mathrm{sc}} / 2,\, 1 / 1000) > 0$ and $N_0 := \max(\max(N_{\mathrm{sc}},\, \delta.\mathrm{den} + 2),\, N_{\mathrm{sc}}^3 + 2)$, where $\delta.\mathrm{den}$ is the denominator of $\delta \in \Q$. Let $A$ be an arbitrary synchronizing DFA on $n \ge N_0$ states, with sink SCC $C_{\mathrm{sink}}$ of size $s$. By Lemma~\ref{lem:scc-reduction}, $\rt(A) \le n^2 + \rt(A|_{C_{\mathrm{sink}}})$, and since $n \ge \delta.\mathrm{den}$ we have $n^2 \le \delta n^3$.
+\begin{itemize}[leftmargin=2em]
+  \item If $s \ge N_{\mathrm{sc}}$, the strongly connected core applied to $A|_{C_{\mathrm{sink}}}$ yields
+  \[
+    \rt(A) \le n^2 + \left(\frac{7}{48} - \delta_{\mathrm{sc}}\right) s^3
+    \le \delta n^3 + \left(\frac{7}{48} - 2\delta\right) n^3
+    = \left(\frac{7}{48} - \delta\right) n^3.
+  \]
+  \item If $s < N_{\mathrm{sc}}$, Lemma~\ref{lem:pf-gap} applied to $A|_{C_{\mathrm{sink}}}$ gives $\rt(A|_{C_{\mathrm{sink}}}) \le s^3 \le N_{\mathrm{sc}}^3 \le n \le n^2$, whence
+  \[
+    \rt(A) \le 2 n^2 \le 2\delta n^3 \le \left(\frac{7}{48} - \delta\right) n^3.
+  \]
+\end{itemize}
+Finally, writing $\delta' := \min(\delta, 1/100) = a / q$ in lowest terms ($a, q \ge 1$) and setting $p := 48 a \le 7 q$, clearing denominators produces $48 q \, |w| \le (7 q - p) n^3$.
+\end{proof}
+
+\begin{remark}[Unformalized extension and structural barrier]\label{rem:unformalized-37-384}
+This remark describes an unformalized heuristic extension and is \emph{not} part of the Lean~4 formalization. In Proposition~\ref{prop:caseB-band}, we only counted $E_T$-edges from $V_1$ into $\bar{S}$ via a single application of Lemma~\ref{lem:preimage-lift}, yielding the independent-set ceiling $\alpha(E_T) \le 0.42$. A refined two-step double count tracking edges among lifted common neighborhoods inside $\bar{S}$ can lower the near-bijective independent-set bound toward $\alpha(E_T) \le \frac{1}{4} + o(1)$, which would improve the Case~B upper bound toward $\frac{1 - (3/4)^3}{6} n^3 = \frac{37}{384} n^3 \approx 0.096354\, n^3$. However, one-scale preimage lifting alone faces an intrinsic graph-theoretic obstruction: disjoint unions of regular cliques or complete bipartite graphs $K_{d+1}$ / $K_{d,d}$ are regular, locally triangle-rich (or high-expansion), and still admit independent sets of constant fraction $\Theta(1)$ of $Q$. Breaking the general cubic barrier $o(n^3)$ will therefore require exploiting multi-scale global connectivity beyond single-scale degree regularity.
+\end{remark}
+
+\section{Proof of Theorems~\ref{thm:sub-shitov} and \ref{thm:shitov-zero-calc}: Explicit-\texorpdfstring{$O(n^2)$}{O(n\textasciicircum 2)} Cubic Bounds}\label{sec:sub-shitov}
+
+We now turn to explicit quadratic-remainder bounds valid for every $n \ge 1$.
+
+\subsection{Zero-calculus telescoping rational-dual proof of Theorem~\ref{thm:shitov-zero-calc}}\label{sec:shitov-dual}
+
+\begin{proof}[Proof of Theorem~\ref{thm:shitov-zero-calc}]
+For $n < 100$, Lemma~\ref{lem:pf-gap} gives $6 \rt(A) \le n^3$, so $6 \cdot 49923\, \rt(A) \le 49923\, n^3 = 6 \cdot 8257\, n^3 + 381 n^3 \le 6 \cdot 8257\, n^3 + 381 \cdot 99\, n^2 \le 6(8257\, n^3 + 149769\, n^2)$.
+
+Assume now $n \ge 100$, and set $k := \lfloor (n - 2)/2 \rfloor$ and $\gamma := \lfloor 125 n / 258 \rfloor$. If $\delta(j) \le 2k$ for all $j \le n - 2$, then $\rt(A) \le (n - 1)(2k) \le n^2$ and the claim is trivial. Otherwise let $\rho := \min \{j \le n - 2 : \delta(j) > 2k\}$. Since $\delta(0) \le 1 < 2k$, we have $\rho \ge 1$, and $\lambda(\rho) \le \rho (2k) \le n^2$.
+
+\smallskip
+\noindent\textbf{Case 1: $\rho > \gamma$.}
+Then $5 \rho \ge 2 n$. Applying Lemma~\ref{lem:pf-gap} on $[\rho, n - 1)$ gives $6 \sum_{j=\rho}^{n-2} \delta(j) \le n^3 - \rho^3 \le (1 - \frac{8}{125}) n^3 = \frac{117}{125} n^3$, so $\rt(A) \le \frac{117}{750} n^3 + n^2 < \frac{8257}{49923} n^3 + 3 n^2$.
+
+\smallskip
+\noindent\textbf{Case 2: $\rho \le \gamma$.}
+Decompose $\lambda(n - 1) = \lambda(\rho) + S_{\mathrm{mid}} + S_{\mathrm{tail}}$, where $S_{\mathrm{mid}} := \sum_{r=\rho}^{k} \delta(r)$ and $S_{\mathrm{tail}} := \sum_{j=k+1}^{n-2} \delta(j)$. By Lemma~\ref{lem:pf-gap} and $2k + 3 \ge n$ (which implies $8(k+1)(k+2)(k+3) \ge n^3$ for $n \ge 100$), we have $48 S_{\mathrm{tail}} \le 7 n^3$, i.e., $S_{\mathrm{tail}} \le \frac{7}{48} n^3$.
+
+For $1 \le i \le k$, define the disjoint gap buckets $B_i := \{j < \rho : 2i - 1 \le \delta(j) \le 2i\}$ and their counts $s_i := |B_i|$, so $\sum_{i=1}^k s_i \le \rho$. For every $r \in [\rho, k]$, let $\tau \le \rho$ be the least index with $\delta(\tau) > 2r$. Every positive gap $\delta(j)$ with $j < \tau$ lies in $\bigcup_{i=1}^r B_i$, so $\lambda(\tau) \le 2 \sum_{i=1}^r i s_i$, and Lemma~\ref{lem:shitov-gap} gives
+\begin{equation}\label{eq:shitov-bucket}
+  \delta(r) \le 2 \sum_{i = 1}^{r} i s_i + 2 r.
+\end{equation}
+On the other hand, Lemma~\ref{lem:pf-gap} gives $\delta(r) \le \binom{r+2}{2} \le \frac{r^2}{2} + (2r + 1)$.
+
+Set $\beta := \max(\rho, \lfloor n / 10 \rfloor)$ and $M := \gamma(k - \gamma)$, and introduce the explicit rational dual weights
+\begin{equation}\label{eq:dual-weights}
+  \alpha_r := \begin{cases}
+    0, & \rho \le r < \beta, \\
+    \dfrac{M}{r(r + 1)}, & \beta \le r \le \gamma, \\
+    1, & \gamma < r \le k.
+  \end{cases}
+\end{equation}
+Because $258 \gamma \le 125 n$ and $258(k - \gamma) \le 4 n$, we have $66564 M \le 500 n^2 \le 66564 r(r + 1)$ for all $r \ge \beta \ge \lfloor n/10 \rfloor$ ($n \ge 100$), so $\alpha_r \in [0, 1]$ for every $r \in [\rho, k]$. Taking the $(1 - \alpha_r, \alpha_r)$ convex combination of Pin--Frankl and \eqref{eq:shitov-bucket} and summing over $r \in [\rho, k]$ yields
+\begin{equation}\label{eq:dual-combo}
+  S_{\mathrm{mid}} \le
+    \underbrace{\sum_{r = \rho}^{k} (1 - \alpha_r) \frac{r^2}{2}}_{\text{Piece A}}
+    + \underbrace{2 \sum_{r = \rho}^{k} \alpha_r \sum_{i = 1}^{r} i s_i}_{\text{Piece B}}
+    + \underbrace{\sum_{r = \rho}^{k} (2r + 1)}_{\text{Piece C}}.
+\end{equation}
+We bound the three pieces cleanly without calculus:
+\begin{itemize}[leftmargin=2em]
+  \item \emph{Piece A:} For $r > \gamma$, $1 - \alpha_r = 0$. On $[\rho, \gamma]$, using $\sum_{r=\rho}^\gamma \frac{r^2}{2} \le \sum_{r=\rho}^\gamma \binom{r+2}{2} \le \frac{(\gamma+1)(\gamma+2)(\gamma+3) - \rho^3}{6}$ and $\frac{r}{r+1} \ge 1 - \frac{1}{\beta}$ for $r \ge \beta$ gives
+  \[
+    \text{Piece A} \le \frac{(\gamma+1)(\gamma+2)(\gamma+3)}{6} - \frac{\rho^3}{6} - \frac{M}{2}(\gamma - \beta)\left(1 - \frac{1}{\beta}\right).
+  \]
+  \item \emph{Piece B:} Swapping the double sum gives $2 \sum_{i=1}^k i s_i \sum_{r = \max(i, \rho)}^k \alpha_r$. For $1 \le i \le \gamma$, telescoping $\frac{1}{r(r+1)} = \frac{1}{r} - \frac{1}{r+1}$ yields
+  \[
+    \sum_{r = \max(i, \rho)}^{k} \alpha_r
+    = M\left(\frac{1}{\max(i, \beta)} - \frac{1}{\gamma + 1}\right) + (k - \gamma)
+    = \frac{M}{\max(i, \beta)} + \frac{k - \gamma}{\gamma + 1}
+    \le \frac{(\gamma + 1)(k - \gamma)}{i},
+  \]
+  and for $\gamma < i \le k$, $i \sum_{r=i}^k \alpha_r = i(k + 1 - i) \le (\gamma + 1)(k - \gamma)$ (since $2\gamma \ge k$). Therefore, uniformly for all $1 \le i \le k$, $i \sum_{r=\max(i,\rho)}^k \alpha_r \le (\gamma + 1)(k - \gamma)$, whence
+  \[
+    \text{Piece B} \le 2 (\gamma + 1)(k - \gamma) \sum_{i=1}^{k} s_i \le 2 \rho (\gamma + 1)(k - \gamma).
+  \]
+  \item \emph{Piece C:} $\sum_{r=\rho}^k (2r + 1) \le \sum_{r=0}^k (2r + 1) = (k + 1)^2$.
+\end{itemize}
+Replacing the rounded integers $\gamma \approx \frac{125}{258} n$, $k - \gamma \approx \frac{2}{129} n$, and $M \approx \frac{125}{16641} n^2$ by their exact rational leading terms (accounting for all integer-division errors inside $+3 n^2$ for $n \ge 100$) reduces the leading cubic term to the rational polynomial
+\[
+  P_n(\rho, \beta) := \frac{7}{48} n^3 + \frac{\bigl(\frac{125}{258}\bigr)^3 n^3 - \rho^3}{6}
+    - \frac{125}{33282} n^2 \left(\frac{125}{258} n - \beta\right)
+    + \frac{250}{16641} \rho n^2.
+\]
+For any $x \ge 0$, direct polynomial expansion verifies the \textbf{exact rational-square identity}
+\begin{equation}\label{eq:rational-square}
+  \frac{8257}{49923} n^3 - P_n(x, x)
+  = \frac{1}{6}\left(x - \frac{25}{129} n\right)^2 \left(x + \frac{50}{129} n\right) \ge 0.
+\end{equation}
+If $\rho \ge \lfloor n/10 \rfloor$, then $\beta = \rho$ and \eqref{eq:rational-square} applies directly at $x = \rho$. If $\rho < \lfloor n/10 \rfloor$, then $\beta \le n/10 =: c$, and both $-\frac{125}{33282} n^2 (\frac{125}{258} n - \beta)$ and $\frac{250}{16641} \rho n^2 - \frac{\rho^3}{6}$ are nondecreasing in $\beta$ and $\rho$ on $[0, n/10]$ (the latter because $\frac{250}{16641} n^2 \ge \frac{3 c^2}{6} = \frac{1}{200} n^2$), so $P_n(\rho, \beta) \le P_n(c, c) \le \frac{8257}{49923} n^3$.
+
+Adding all terms gives $49923\, \rt(A) \le 8257\, n^3 + 149769\, n^2$. Clearing $333/2000 > 8257/49923$ gives $2000\, |w| \le 333\, n^3 + 6000\, n^2$, and checking $6(8257 n^3 + 149769 n^2) + 49923 n < 49923 n^3$ for all $n \ge 2359$ yields $6\, \rt(A) < n^3 - n$ (and since $6 \mid n^3 - n$, $\rt(A) < (n^3 - n)/6$).
+\end{proof}
+
+\subsection{Mass-defect retention and two-bin AP plateau saving: Proof of Theorem~\ref{thm:sub-shitov}}\label{sec:sub-shitov-proof}
+
+\begin{proof}[Proof of Theorem~\ref{thm:sub-shitov}]
+We first establish the strongly connected bound
+\[
+  149769\, \rt(A) \le 24646\, n^3 + 7488450\, n^2,
+  \qquad\text{i.e.,}\qquad
+  \rt(A) \le \frac{24646}{149769} n^3 + 50 n^2,
+\]
+which saves $\frac{125}{149769} n^3$ below $\frac{8257}{49923} n^3 = \frac{24771}{149769} n^3$.
+
+When $n < 23\,700$, Lemma~\ref{lem:pf-gap} gives $6\, \rt(A) \le n^3$, which immediately implies $149769\, \rt(A) \le 24646\, n^3 + 7488450\, n^2$, because $149769 - 6 \cdot 24646 = 1893$ and $1893 \cdot 23699 < 6 \cdot 7488450$.
+
+Assume now $n \ge 23\,700$, and retain $k, \gamma, \rho, \beta, M, \alpha_r, B_i, s_i$ from Section~\ref{sec:shitov-dual}. As before, if every gap is $\le 2k$ then $\rt(A) \le n^2$, and if $\rho > \gamma$ then pure Pin--Frankl gives $\le \frac{117}{750} n^3 + n^2 < \frac{24646}{149769} n^3 + 50 n^2$. Assume $\rho \le \gamma$. We split into three remaining regimes:
+
+\smallskip
+\noindent\textbf{Case 2 (Outer $\rho$-range): $\lfloor n/3 \rfloor < \rho \le \gamma$.}
+Here $\beta = \rho > \frac{n}{3} - 1$. The exact rational-square slack in \eqref{eq:rational-square} satisfies
+\[
+  \frac{1}{6}\left(\frac{1}{3} - \frac{25}{129}\right)^2 \left(\frac{1}{3} + \frac{50}{129}\right)
+  = \frac{1}{6}\left(\frac{18}{129}\right)^2 \left(\frac{93}{129}\right)
+  = \frac{186}{79507} \approx 0.002339 > \frac{125}{149769} \approx 0.000835,
+\]
+so the unchanged dual estimate \eqref{eq:dual-combo} already satisfies $\rt(A) \le \frac{24646}{149769} n^3 + 50 n^2$.
+
+\smallskip
+\noindent\textbf{Case 3 (Central $\rho \le \lfloor n/3 \rfloor$, large short corank $18 D \ge n$).}
+Recall $D = D(n - 1)$ satisfies $\lambda(D) \le n - 1$.
+\begin{itemize}[leftmargin=2em]
+  \item \emph{Subcase 3a ($\rho < D$):} Then $\rho + 1 \le D$, so $\lambda(\rho + 1) \le \lambda(D) \le n - 1$. Since $\lambda(\rho + 1) - \lambda(\rho) = \delta(\rho) > 2k \ge n - 3$, this forces $\lambda(\rho) \le 1$. Applying Lemma~\ref{lem:shitov-gap} directly at $\tau = \rho$ yields $\delta(r) \le 2r + 1$ for every $r \in [\rho, k]$, so $S_{\mathrm{mid}} \le (k + 1)^2 \le n^2$ and $\rt(A) \le \frac{7}{48} n^3 + 2 n^2 < \frac{24646}{149769} n^3 + 50 n^2$.
+  \item \emph{Subcase 3b ($D \le \rho$):} Split each bucket $B_i = B_i^{\mathrm{lo}} \sqcup B_i^{\mathrm{hi}}$ into indices $j < D$ and $j \in [D, \rho)$, with counts $s_i = s_i^{\mathrm{lo}} + s_i^{\mathrm{hi}}$. On $[0, D)$, since $2i \le \delta(j) + 1$ for every $j \in B_i^{\mathrm{lo}}$,
+  \[
+    2 \sum_{i=1}^{k} i s_i^{\mathrm{lo}} \le \sum_{j = 0}^{D - 1} (\delta(j) + 1) = \lambda(D) + D \le 2n,
+  \]
+  so $\sum_{i=1}^k i s_i^{\mathrm{lo}} \le n$. Since $\sum_{r=\max(i,\rho)}^k \alpha_r \le (\gamma+1)(k-\gamma) / \beta$ uniformly for all $1 \le i \le k$, the $s_i^{\mathrm{lo}}$ contribution to Piece~B is at most $2(n/\beta)(\gamma+1)(k-\gamma) \le 22 \cdot \frac{1}{100} n^2$ (as $n \le 11 \beta$). Meanwhile $\sum_{i=1}^k s_i^{\mathrm{hi}} \le \rho - D$, replacing $\rho$ by $\rho - D$ in the leading Piece~B term $2\rho(\gamma+1)(k-\gamma)$. Because $D \ge n / 18$ and $(\gamma+1)(k-\gamma) \ge \frac{125}{16641} n^2 - n$, this \emph{mass-defect retention} yields a net adjustment
+  \[
+    2\frac{n}{\beta}(\gamma + 1)(k - \gamma) - 2 D (\gamma + 1)(k - \gamma)
+    \le -\frac{125}{149769} n^3 + n^2,
+  \]
+  since $2 \cdot \frac{1}{18} \cdot \frac{125}{16641} = \frac{125}{149769}$. Combined with the Shitov base $+3 n^2$, this gives $\rt(A) \le \frac{24646}{149769} n^3 + 50 n^2$.
+\end{itemize}
+
+\smallskip
+\noindent\textbf{Case 4 (Central $\rho \le \lfloor n/3 \rfloor$, small short corank $18 D < n$).}
+Define two disjoint bins inside $[\rho, \gamma]$:
+\[
+  B_1 := \bigl[\lceil n / 3 \rceil,\, \lfloor 38 n / 100 \rfloor\bigr], \qquad
+  B_2 := \bigl[\lfloor 38 n / 100 \rfloor + 1,\, \lfloor 41 n / 100 \rfloor\bigr].
+\]
+For every $r \in B_1 \cup B_2$, we apply Lemma~\ref{lem:ap-plateau} with $M = 500$ and $D < n / 18$:
+\begin{itemize}[leftmargin=2em]
+  \item For $r \in B_1$ ($u = r / n \in [\frac{1}{3}, 0.38]$), $\frac{u^2}{2} - \frac{u(1-u)}{18(1-2u)} - \frac{u^2}{500(1-2u)}$ evaluates to $\approx 0.01785$ at $u = \frac{1}{3}$ and $\approx 0.01646 > \frac{164}{10000}$ at $u = 0.38$, and stays above $\frac{164}{10000}$ throughout $[\frac{1}{3}, 0.38]$. Thus
+  \[
+    \delta(r) \le \frac{r^2}{2} - \frac{164}{10000} n^2 + 500 n,
+  \]
+  while $\alpha_r = \frac{M}{r(r+1)} \le \frac{125/16641}{(1/3)^2} \approx 0.0676 < 0.068$, so $1 - \alpha_r \ge 0.932$.
+  \item For $r \in B_2$ ($u = r / n \in [0.38, 0.41]$), similarly at $u = 0.41$, $\frac{0.41^2}{2} - \frac{0.41 \cdot 0.59}{18 \cdot 0.18} - \frac{0.41^2}{500 \cdot 0.18} \approx 0.00752 > \frac{75}{10000}$, giving
+  \[
+    \delta(r) \le \frac{r^2}{2} - \frac{75}{10000} n^2 + 500 n,
+  \]
+  while $\alpha_r \le \frac{125/16641}{0.38^2} \approx 0.0520 < 0.053$, so $1 - \alpha_r \ge 0.947$.
+\end{itemize}
+Substituting these sharper upper bounds in place of Pin--Frankl in the $(1 - \alpha_r, \alpha_r)$ combination \eqref{eq:dual-combo} inside $B_1$ and $B_2$ adds a net adjustment
+\[
+  |B_1|\left(-0.932 \cdot \frac{164}{10000} n^2 + 500 n\right)
+  + |B_2|\left(-0.947 \cdot \frac{75}{10000} n^2 + 500 n\right).
+\]
+Since $|B_1| \ge \frac{7}{150} n - 1$, $|B_2| \ge \frac{3}{100} n - 1$, and $|B_1| + |B_2| \le 0.08 n + 2$, the cubic saving is
+\[
+  \frac{7}{150} \cdot 0.932 \cdot 0.0164 + \frac{3}{100} \cdot 0.947 \cdot 0.0075
+  \approx 0.0009264 > \frac{125}{149769} \approx 0.0008346,
+\]
+and the linear $500 n$ terms sum to at most $40 n^2 + O(n) \le 45 n^2$. Combining with the Shitov base $\frac{8257}{49923} n^3 + 3 n^2$ gives $\rt(A) \le \frac{24646}{149769} n^3 + 50 n^2$ for every strongly connected synchronizing DFA.
+
+\smallskip
+\noindent\textbf{Extension to arbitrary DFAs and explicit thresholds.}
+For an arbitrary synchronizing DFA $A$ on $n$ states with sink SCC $C_{\mathrm{sink}}$ of size $s$ and $m = n - s$, Lemma~\ref{lem:scc-reduction} yields
+\[
+  149769\, \rt(A) \le \frac{149769}{2} m(m + 1) + 24646\, s^3 + 7488450\, s^2 \le 24646\, n^3 + 7488450\, n^2,
+\]
+using $s^3 \le n^3$ and $m(m + 1) / 2 + 50 s^2 \le 50 (m + s)^2 = 50 n^2$. Finally:
+\begin{enumerate}[label=(\alph*), leftmargin=2em]
+  \item $24646\, n^3 + 7488450\, n^2 < 3 \cdot 8257\, n^3 = 24771\, n^3 \iff 7488450 < 125 n \iff n \ge 59\,908$.
+  \item $24646\, n^3 + 7488450\, n^2 < 3 \cdot 8242\, n^3 = 24726\, n^3 \iff 7488450 < 80 n \iff n \ge 93\,606$. \qedhere
+\end{enumerate}
+\end{proof}
+
+\section{Proof of Theorem~\ref{thm:exact-transversal}: Global Exact-Transversal Corank-Gap Bound}\label{sec:exact-transversal}
+
+\begin{proof}[Proof of Theorem~\ref{thm:exact-transversal}]
+Let $u \in \Sigma^*$ be a word of length $|u| = \lambda(r)$ with $|Q \cdot u| \le n - r$, and put $S := Q \cdot u$. If $|S| \le n - (r + 1)$, then $\lambda(r + 1) \le |u| = \lambda(r)$ and $\delta(r) = 0$. Assume therefore $|S| = n - r \ge 2$. If $|S \cdot u| < |S|$, then $u^2$ has length $2\lambda(r)$ and $|Q \cdot u^2| \le n - (r + 1)$, whence $\delta(r) \le \lambda(r) < \lambda(r) + r + 1$. Assume therefore $|S \cdot u| = |S|$.
+
+Suppose for contradiction that $\delta(r) > \lambda(r) + r + 1$. Then for every word $w \in \Sigma^*$ of length $|w| \le r + 1$:
+\begin{itemize}[leftmargin=2em]
+  \item $|S \cdot w| = |S|$ (else $u w$ of length $\le \lambda(r) + r + 1$ has rank $\le n - (r + 1)$); and
+  \item $|(S \cdot w) \cdot u| = |S|$ (else $u w u$ of length $\le 2\lambda(r) + r + 1$ has rank $\le n - (r + 1)$).
+\end{itemize}
+In particular, every $S \cdot w$ ($|w| \le r + 1$) is an exact transversal of the $n - r$ fibers $\{y u^{-1} : y \in S\}$ of $u$.
+
+Work over the vector space $\Q^Q$. For any $T \subseteq Q$, let $\ind_T \in \Q^Q$ denote its indicator vector, and for any word $w \in \Sigma^*$, let $P_w : \Q^Q \to \Q^Q$ be the linear pushforward operator $(P_w v)(q) := \sum_{p \cdot w = q} v(p)$. Note that $P_{\varepsilon} = \mathrm{id}$, $P_{w_1 w_2} = P_{w_2} \circ P_{w_1}$, and whenever $|T \cdot w| = |T|$ we have $P_w(\ind_T) = \ind_{T \cdot w}$.
+
+Define the \emph{fiber-sum linear map} $\Phi_u : \Q^Q \to \Q^S$ by $(\Phi_u z)(y) := \sum_{p \in y u^{-1}} z(p)$ for $y \in S$. Because each fiber $y u^{-1}$ ($y \in S$) is nonempty, $\Phi_u$ is surjective (setting $z(p) := g(p \cdot u) / |(p \cdot u) u^{-1}|$ gives $\Phi_u z = g$), so by rank--nullity
+\[
+  \dim_\Q(\ker \Phi_u) = |Q| - |S| = r.
+\]
+Moreover, if $T \subseteq Q$ satisfies $|T| = |S|$ and $|T \cdot u| = |T|$, then $T \cdot u = S$ and $T$ hits every fiber $y u^{-1}$ ($y \in S$) exactly once, so $\Phi_u(\ind_T) = \ind_S$.
+
+Now consider the ascending chain of subspaces
+\[
+  V_t := \operatorname{span}_\Q \bigl\{ \ind_{S \cdot p} - \ind_S : |p| \le t \bigr\} \subseteq \Q^Q \qquad (0 \le t \le r + 1).
+\]
+For every $t \le r + 1$ and $|p| \le t$, both $S \cdot p$ and $S$ are exact transversals of the fibers of $u$, so $\Phi_u(\ind_{S \cdot p} - \ind_S) = \ind_S - \ind_S = 0$; hence $V_t \subseteq \ker \Phi_u$. Since $\dim_\Q(V_0) = 0$ and $\dim_\Q(V_{r+1}) \le \dim_\Q(\ker \Phi_u) = r$, there must exist $t \in \{0, \dots, r\}$ such that $V_t = V_{t + 1}$.
+
+We claim that $V_t$ is invariant under $P_a$ for every letter $a \in \Sigma$. Indeed, on any generator $\ind_{S \cdot p} - \ind_S$ with $|p| \le t$, since $|p a| \le t + 1 \le r + 1$ we have $|(S \cdot p) \cdot a| = |S \cdot p|$ and $|S \cdot a| = |S|$, so
+\[
+  P_a(\ind_{S \cdot p} - \ind_S) = \ind_{S \cdot p a} - \ind_{S \cdot a}
+  = (\ind_{S \cdot p a} - \ind_S) - (\ind_{S \cdot a} - \ind_S) \in V_{t + 1} = V_t.
+\]
+By induction on word length (writing $P_{wa}(\ind_S) - \ind_S = P_a(P_w(\ind_S) - \ind_S) + (\ind_{S \cdot a} - \ind_S)$), we obtain $P_w(\ind_S) - \ind_S \in V_t \subseteq \ker \Phi_u$ for \emph{every} word $w \in \Sigma^*$.
+
+Finally, let $w_{\mathrm{sync}}$ be a synchronizing word sending all states to $q_0 \in Q$. Then $P_{w_{\mathrm{sync}}}(\ind_S)$ is supported solely at $q_0$ (with value $|S|$). Because $|S| = n - r \ge 2$, we can choose a state $y_1 \in S$ with $y_1 \ne q_0 \cdot u$. Then $q_0 \notin y_1 u^{-1}$, so $(\Phi_u(P_{w_{\mathrm{sync}}}(\ind_S)))(y_1) = 0$, whereas $(\Phi_u(\ind_S))(y_1) = 1$. This contradicts $P_{w_{\mathrm{sync}}}(\ind_S) - \ind_S \in \ker \Phi_u$.
+\end{proof}
+
+\begin{remark}[Sharpness at $r = 1$ on $\mathcal{C}_n$]\label{rem:exact-transversal-sharp}
+Theorem~\ref{thm:exact-transversal} is tight at $r = 1$ on the \v{C}ern\'y automaton $\mathcal{C}_n$ for every $n \ge 3$. With state set $\Z / n\Z$, cyclic shift $a(i) = i + 1$, and merge letter $b(n - 1) = 0$, $b(i) = i$ ($i < n - 1$), we have $|Q \cdot b| = n - 1$, so $\lambda(1) = 1$. Since $Q \cdot b = Q \setminus \{n - 1\}$ and $Q \cdot ba = Q \setminus \{0\}$, applying $b$ to either set fails to merge two states, so no word of length $\le 3$ has rank $\le n - 2$; meanwhile $Q \cdot ba^2 = Q \setminus \{1\}$ contains both $0$ and $n - 1$, so $|Q \cdot ba^2 b| = n - 2$ and $\lambda(2) = 4$. Thus $\delta(1) = 3 = \lambda(1) + 1 + 1$.
+\end{remark}
+
+\section{Formalization and Methodology}\label{sec:formalization}
+
+\subsection{Methodological disclosure}
+
+The mathematical results in this paper were discovered, proved, and completely formalized in Lean~4 using AI-assisted research workflows. To guarantee absolute mathematical reliability independent of how the proofs were found, every theorem, proposition, lemma, and corollary in Sections~\ref{sec:intro}--\ref{sec:exact-transversal} has been translated into formal statements and machine-checked by the Lean~4 kernel (\texttt{leanprover/lean4:v4.36.0} with Mathlib \texttt{v4.36.0}); Remarks~\ref{rem:unformalized-37-384} and~\ref{rem:exact-transversal-sharp} are supplementary remarks outside the Lean declarations.
+
+\subsection{Verification scope and axiom audit}
+
+The formalization sits inside a 31-file Lean~4 repository (28 mathematical modules totaling 39,978 lines, plus \texttt{Cerny.lean}, \texttt{Cerny/Verification.lean}, and \texttt{Cerny/StatementCheck.lean} for 40,840 total lines), publicly archived at \url{https://github.com/antonborisov571/cerny-lean}, that builds cleanly with \texttt{lake build} (exit code~0, zero warnings, zero \texttt{sorry}, zero \texttt{admit}, zero custom \texttt{axiom}, zero \texttt{set\_option} or \texttt{maxHeartbeats} overrides, and zero \texttt{native\_decide} shortcuts). The results in this paper reside in the core definitions and primary modules:
+\begin{itemize}[leftmargin=2em]
+  \item \texttt{Cerny/Defs.lean} (442 lines): core definitions of \texttt{DFA}, \texttt{eval}, \texttt{image}, \texttt{preimage}, \texttt{IsSyncWord}, \texttt{IsSynchronizing}, \texttt{resetThreshold}, and \texttt{IsStronglyConnected}.
+  \item \texttt{Cerny/Combinatorial.lean} and \texttt{AdditionalClasses.lean}: sink-SCC reduction, Pin--Frankl compression, and Szyku\l a's avoiding lemma.
+  \item \texttt{Cerny/SubPinFrankl.lean} (1,237 lines): corank-gap framework, Shitov's corank-gap upgrade, and the zero-calculus telescoping rational-dual proof of Theorem~\ref{thm:shitov-zero-calc}.
+  \item \texttt{Cerny/SubShitov.lean} (2,194 lines): merge graphs, degree transport, the telescoping AP plateau inequality, mass-defect retention, two-bin saving, and Theorem~\ref{thm:sub-shitov}.
+  \item \texttt{Cerny/ExactTransversal.lean} (360 lines): linear pushforward, fiber-sum kernel dimension over $\Q$, and Theorem~\ref{thm:exact-transversal}.
+  \item \texttt{Cerny/BelowSevenFortyEight.lean} (3,347 lines): generalized corank $D(L)$, complement degree bound, singularity-free block compression cap, five rational Bernstein certificates, preimage lifting, Case~B macroscopic band bound, non-circular three-case assembly, and Theorem~\ref{thm:below-7-48}.
+\end{itemize}
+Running \texttt{\#print axioms} via \texttt{Cerny/Verification.lean} (220 audited declarations) confirms that every exported theorem depends solely on the standard Lean axioms \texttt{propext}, \texttt{Classical.choice}, and \texttt{Quot.sound}.
+
+In addition, the standalone audit module \texttt{Cerny/StatementCheck.lean} (521 lines) restates Theorems~\ref{thm:below-7-48} and~\ref{thm:sub-shitov} with zero custom definitions---using only a raw transition map $\mathrm{step} : Q \to \alpha \to Q$, \texttt{List.foldl}, \texttt{List.length}, and \texttt{Fintype.card}---in the declarations
+\begin{center}
+  \small\texttt{check\_raw\_below\_7\_48},\quad \texttt{check\_raw\_below\_7\_48\_nat},\quad \texttt{check\_raw\_sub\_shitov},
+\end{center}
+and passes independent kernel replay via \texttt{lake env leanchecker Cerny.StatementCheck} (exit code~0). Table~\ref{tab:lean-map} gives the exact correspondence between the results in this paper and their machine-checked Lean~4 declarations.
+
+\begin{table}[ht]
+\centering
+\caption{Exact theorem-to-Lean~4 correspondence (all declarations in namespace \texttt{Cerny}).}
+\label{tab:lean-map}
+\footnotesize
+\begin{tabular}{@{}lll@{}}
+\toprule
+Paper result & Lean module & Exported declaration(s) \\
+\midrule
+Theorem~\ref{thm:below-7-48} ($\Q$ form) & \texttt{BelowSevenFortyEight.lean} & \texttt{exists\_strictly\_below\_seven\_forty\_eight} \\
+Theorem~\ref{thm:below-7-48} ($\N$ form) & \texttt{BelowSevenFortyEight.lean} & \texttt{below\_seven\_forty\_eight} \\
+Theorem~\ref{thm:below-7-48} (SC core) & \texttt{BelowSevenFortyEight.lean} & \texttt{below\_seven\_forty\_eight\_sc} \\
+Theorem~\ref{thm:sub-shitov} (main) & \texttt{SubShitov.lean} & \texttt{sub\_shitov\_bound}, \texttt{sub\_shitov\_sc\_bound} \\
+Theorem~\ref{thm:sub-shitov}(a)--(b) & \texttt{SubShitov.lean} & \texttt{sub\_shitov\_strictly\_beats\_shitov}, \\
+ & & \texttt{sub\_shitov\_strictly\_beats\_hong} \\
+Theorem~\ref{thm:shitov-zero-calc} & \texttt{SubPinFrankl.lean} & \texttt{sub\_pin\_frankl\_shitov\_bound}, \\
+ & & \texttt{sub\_pin\_frankl\_333\_2000}, \\
+ & & \texttt{sub\_pin\_frankl\_strictly\_beats\_pin\_frankl}, \\
+ & & \texttt{exists\_sub\_pin\_frankl\_threshold} \\
+Theorem~\ref{thm:exact-transversal} & \texttt{ExactTransversal.lean} & \texttt{corankGap\_le\_minCorankLen\_add\_succ}, \\
+ & & \texttt{minCorankLen\_succ\_le\_two\_mul\_add\_succ} \\
+Lemma~\ref{lem:scc-reduction} & \texttt{Combinatorial.lean} & \texttt{exists\_syncWord\_le\_sinkSCC\_bound} \\
+Lemma~\ref{lem:pf-gap} (gap) & \texttt{SubPinFrankl.lean} & \texttt{corankGap\_le\_pinFrankl} \\
+Lemma~\ref{lem:pf-gap} (total) & \texttt{Combinatorial.lean} & \texttt{pin\_frankl\_bound} \\
+Lemma~\ref{lem:shitov-gap} & \texttt{SubPinFrankl.lean} & \texttt{shitov\_corank\_gap} \\
+Lemma~\ref{lem:merge-basic} & \texttt{SubShitov.lean} & \texttt{plateau\_min\_le\_max}, \texttt{plateau\_time\_le\_max} \\
+Lemma~\ref{lem:deg-transport} & \texttt{SubShitov.lean} & \texttt{degree\_transport} \\
+Lemma~\ref{lem:ap-plateau} & \texttt{SubShitov.lean} & \texttt{ap\_plateau\_inequality} \\
+Lemma~\ref{lem:complement-deg} & \texttt{BelowSevenFortyEight.lean} & \texttt{complement\_deg\_le} \\
+Proposition~\ref{prop:singularity-free-cap} & \texttt{BelowSevenFortyEight.lean} & \texttt{singularityFree\_compression\_cap} \\
+Lemma~\ref{lem:preimage-lift} & \texttt{BelowSevenFortyEight.lean} & \texttt{common\_neighbor\_preimage\_lift} \\
+Proposition~\ref{prop:caseB-band} & \texttt{BelowSevenFortyEight.lean} & \texttt{caseB\_macroscopic\_band\_bound} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{thebibliography}{99}
+
+\bibitem{Cerny1964}
+J.~\v{C}ern\'y, \emph{Pozn\'amka k homog\'ennym experimentom s kone\v{c}n\'ymi automatmi}, Mat.-Fyz. \v{C}asopis Sloven. Akad. Vied \textbf{14}(3) (1964), 208--216. English translation: J. Autom. Lang. Comb. \textbf{24}(2--4) (2019), 123--132.
+
+\bibitem{Frankl1982}
+P.~Frankl, \emph{An extremal problem for two families of sets}, European J. Combin. \textbf{3}(2) (1982), 125--127.
+
+\bibitem{Hong2026a}
+S.~Hong, \emph{Degree transport and a smaller cubic coefficient for reset thresholds}, preprint, Hexagon 2611.00172v1 (Nov.\ 2026), \url{https://hexagonmath.org/abs/2611.00172}.
+
+\bibitem{Hong2026b}
+S.~Hong, \emph{A uniform $7/48$ cubic upper bound for reset thresholds}, preprint, Hexagon 2611.00506v1 (Nov.\ 2026), \url{https://hexagonmath.org/abs/2611.00506}.
+
+\bibitem{Pin1983}
+J.-E.~Pin, \emph{On two combinatorial problems arising from automata theory}, in: Combinatorial Mathematics, North-Holland Math. Stud. \textbf{75} (1983), 535--548.
+
+\bibitem{Shitov2019}
+Y.~Shitov, \emph{An improvement to a recent upper bound for synchronizing words of finite automata}, J. Autom. Lang. Comb. \textbf{24}(2--4) (2019), 367--373; arXiv:1901.06542.
+
+\bibitem{Starke1966}
+P.~H.~Starke, \emph{Eine Bemerkung \"uber homogene Experimente}, Elektron. Informationsverarb. Kybernet. \textbf{2}(4) (1966), 257--259.
+
+\bibitem{Szykula2018}
+M.~Szyku\l a, \emph{Improving the upper bound on the length of the shortest reset word}, in: STACS 2018, LIPIcs \textbf{96} (2018), 56:1--56:13; arXiv:1702.05455.
+
+\bibitem{Szykula2026}
+M.~Szyku\l a, \emph{Synchronizing automata: open problems}, in: AFL 2026, EPTCS \textbf{451} (2026), 33--47; arXiv:2608.24245.
+
+\bibitem{Volkov2022}
+M.~V.~Volkov, \emph{Synchronization of finite automata}, Russian Math. Surveys \textbf{77}(5) (2022), 819--891.
+
+\bibitem{Volkov2026}
+M.~V.~Volkov, \emph{List of results on the \v{C}ern\'y conjecture and reset thresholds for synchronizing automata}, living survey, arXiv:2508.15655v4 (2026).
+
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,747 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs,array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
+\emergencystretch=1.5em
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\rt}{\operatorname{rt}}
+\newcommand{\supp}{\operatorname{supp}}
+\newcommand{\lcm}{\operatorname{lcm}}
+\newcommand{\id}{\mathrm{id}}
+\newcommand{\one}{\mathbf{1}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\cA}{\mathcal{A}}
+\newcommand{\cC}{\mathcal{C}}
+\newcommand{\cL}{\mathcal{L}}
+\newcommand{\cZ}{\mathcal{Z}}
+\newcommand{\bmu}{\boldsymbol{\mu}}
+\newcommand{\ind}[1]{[#1]}
+\newcommand{\us}{\_\allowbreak}
+
+\title{Exact $(n-1)^2$ and Quadratic Reset Threshold Bounds\\Beyond One-Cluster Automata}
+\author{Anton Borisov\thanks{Mathematical discovery and Lean~4 formalization were developed with AI assistance; every main theorem in this paper is independently machine-checked by the Lean~4.36.0 kernel (Mathlib~v4.36.0) with zero \texttt{sorry} and standard axioms only. See Section~\ref{sec:formalization}.}}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Following Zhu's July~2026 resolution of the \v{C}ern\'y conjecture for one-cluster automata via annular spectral descent, the sharpest structural frontier for quadratic and exact $(n-1)^2$ reset threshold bounds lies in \emph{multi-cluster automata} (where every letter has $c \ge 2$ cycles, possibly accompanied by trees of positive height $\ell > 0$) and in automata admitting \emph{non-uniform stationary probability measures}. We prove ten machine-verified theorems advancing both fronts:
+\begin{enumerate}[label=(\roman*),nosep]
+  \item \emph{Cluster-balanced permutation automata:} via higher-multiplicity confluent spectral descent we prove exact $\rt(\cA) \le (n-1)^2$ whenever all cycles of a permutation letter have equal length---unifying Dubuc's circular theorem ($c=1$) and Kari's Eulerian theorem ($c=n$)---and $\rt(\cA) \le 1 + (n-2)\max(n, 2n - m_1 - c) < 2n^2$ for arbitrary cycle lengths $m_1 \le \dots \le m_c$.
+  \item \emph{Multi-cluster automata with arbitrary trees ($\ell \ge 0$):} bypassing the single-letter nilpotent--unit spectral obstruction via optimal degree-$(m-g-1)$ cycle averaging and exact rank-$1$ word-distribution lifts over $\Q$, we prove exact $\rt(\cA) \le (n-1)^2$ (and $\rt(\cA) \le n^2-3n+3$ for $n \ge 6$) for all opposite-drift $2$-cluster automata without strong connectivity, balance, or mixing; quadratic bounds $\le 3(n-1)^2$ and $\le 2(n-1)^2$ for balanced-mixing $2$-cluster automata; and exact $(n-1)^2$ (for $2m \le n$, or $m_0 \ge 2$ with $12m \le 7n$) and $< 2(n-1)^2$ in general for arbitrary $c \ge 2$ equal-cycle automata with a cyclic basin-shift letter.
+  \item \emph{Unbalanced cycle-drain, partial-drain, and non-strongly-connected $2$-cycle automata:} we prove $\rt(\cA) \le (5n^2 - 6n + 13)/4$ for full cycle-drain automata with $2m_1 \le n+1$ (resolving the Kisielewicz--Szyku\l a extremal family $\cA_{2m-1}$ to $O(n^2)$), exact $\rt(\cA) \le (n-1)^2$ for all partial cycle-drain $2$-cycle automata with $k_{12}(b) \le 1$ and $2r m_1 < m_2$, quadratic bounds $< 5(n-1)^2$ (and $< 2(n-1)^2$ for $m_1 \le m_2$) for all $r = 1$ with $2\gcd(m_1, m_2) < m_2$ regardless of $m_1$, and exact $\rt(\cA) \le (n-1)^2$ for every non-strongly-connected synchronizing $2$-cycle permutation automaton.
+  \item \emph{Non-uniform stationary measures:} we give a unified two-case real-valued proof of exact $(n-1)^2$ for almost-uniform stationary vectors and unconditional degree-$1$ quasi-Eulerian automata, establish the first uniform quadratic bound $14\,\rt(\cA) < 29(n-1)^2$ (and $< 2(n-1)^2$ off $\frac{1}{2}\Z$ and at $\{\frac{1}{2}, \frac{3}{2}\}$) for all two-value stationary vectors with $|X| = 2$ over all $\alpha_0 \in \R_{>0}$ (plus polynomial $O(kn^2)$ bounds for arbitrary $k$ removing both rationality and Berlinkov's $2^k$ factor), and give a self-contained matrix-free dual-subspace proof of Szyku\l a's tier lemma yielding exact $(n-1)^2$ for integer stationary measures up to logarithmic excess $J \le n + \lfloor\log_2 n\rfloor - 4$.
+\end{enumerate}
+Every theorem in this paper, together with an independent formalization of Zhu's one-cluster theorem and classical foundations, is formally verified in Lean~4.36.0 (Mathlib~v4.36.0) using only standard axioms.
+\end{abstract}
+
+\section{Introduction and Overview}
+\label{sec:intro}
+
+A \emph{complete deterministic finite automaton} (DFA, or semiautomaton) is a triple $\cA = (Q, \Sigma, \delta)$ where $Q$ is a finite nonempty set of $n := |Q|$ states, $\Sigma$ is an alphabet of input letters, and $\delta : Q \times \Sigma \to Q$ is a total transition map written on the right as $q \cdot a := \delta(q, a)$. Extending $\delta$ to words $w \in \Sigma^*$ by $q \cdot \varepsilon = q$ and $q \cdot (wa) = (q \cdot w) \cdot a$, we write $S \cdot w := \{q \cdot w : q \in S\}$ and $S w^{-1} := \{q \in Q : q \cdot w \in S\}$ for $S \subseteq Q$. A word $w \in \Sigma^*$ is \emph{synchronizing} (or a \emph{reset word}) if $|Q \cdot w| = 1$, i.e., there exists $q_0 \in Q$ with $q \cdot w = q_0$ for all $q \in Q$. If $\cA$ admits a synchronizing word, $\cA$ is \emph{synchronizing} and its \emph{reset threshold} is $\rt(\cA) := \min\{|w| : w \text{ synchronizes } \cA\}$.
+
+\v{C}ern\'y~\cite{Cerny1964} constructed for every $n \ge 2$ the binary automaton $\cC_n$ on $\Z/n\Z$ with reset threshold $(n-1)^2$ and conjectured (see also Starke~\cite{Starke1966}) that every synchronizing $n$-state DFA satisfies
+\begin{equation}
+  \rt(\cA) \le (n-1)^2.
+  \label{eq:cerny}
+\end{equation}
+For general DFAs, the best unconditional upper bounds remain cubic---from Pin~\cite{Pin1983} and Frankl~\cite{Frankl1982} ($\frac{n^3-n}{6}$), through Szyku\l a~\cite{Szykula2018} and Shitov~\cite{Shitov2019} ($\approx 0.1654\,n^3$), to unrefereed November~2026 preprints by Hong~\cite{Hong2026a,Hong2026b} reaching $\frac{7}{48}n^3 + o(n^3)$---while~\eqref{eq:cerny} has been settled for several structured classes~\cite{Volkov2022,Volkov2026}. Two classical spectral/linear-algebraic milestones are Dubuc's proof of~\eqref{eq:cerny} for \emph{circular} automata~\cite{Dubuc1998} (possessing a single $n$-cycle permutation letter) and Kari's proof of $\rt(\cA) \le (n-1)(n-2)+1 \le (n-1)^2$ for \emph{Eulerian} automata~\cite{Kari2003} (generalized via the averaging trick to pseudo-Eulerian and prime-cycle one-cluster automata by Steinberg~\cite{Steinberg2011}). A quadratic bound for one-cluster automata was established by B\'eal, Berlinkov, and Perrin~\cite{BBP2011}, and in a July~2026 arXiv preprint Yinfeng Zhu~\cite{Zhu2026} resolved the full \v{C}ern\'y conjecture for all synchronizing one-cluster automata via \emph{annular spectral descent}, proving $\rt(\cA) \le (m-1)(n-1) + m\ell \le (n-1)^2$ where $m$ is the unique cycle length and $\ell$ the maximum tree height.
+
+For classes with \emph{weakened uniformity}, Berlinkov~\cite{Berlinkov2012,Berlinkov2013} introduced \emph{quasi-Eulerian} automata of degree~$d$ and \emph{quasi-one-cluster} automata of degree~$d$, obtaining bounds $2^d(n-d+1)(n-1)$ and $2^d(n-d+1)(2n-d-2)$ that grow exponentially in~$d$. In an unrefereed November~2026 preprint, Goel~\cite{Goel2026} proved~\eqref{eq:cerny} for synchronizing automata admitting a positive stationary distribution constant on $Q \setminus \{x_0\}$ (hence resolving degree-$1$ quasi-Eulerian automata) and for integer stationary measures with $\pi(Q) - \max_q \pi(q) \le n$ ($n \ge 7$), flagging \emph{two-value stationary vectors} with $k \ge 2$ exceptional states as a primary open frontier. Meanwhile, as highlighted in Volkov's arXiv survey~\cite{Volkov2026}, \emph{multi-cluster automata} ($c \ge 2$ cycles, even for $c = 2$) remain open even for an unconditional $O(n^2)$ bound.
+
+\paragraph{Contributions.}
+This paper develops four complementary spectral, averaging, and combinatorial mechanisms pushing systematically past the one-cluster and almost-uniform frontiers:
+\begin{enumerate}[label=\textbf{\arabic*.}]
+  \item \emph{Higher-multiplicity confluent spectral descent} (Section~\ref{sec:cluster-balanced}) extends Zhu's annular spectral descent from simple ($1$-dimensional) eigenspaces to arbitrary cycle multiplicities on cluster-balanced permutation automata, proving exact $(n-1)^2$ for equal cycles (Theorem~\ref{thm:cb-equal}) and $< 2n^2$ for arbitrary cycle lengths (Theorem~\ref{thm:cb-general}), while pinpointing three exact spectral obstructions that govern unequal cycles and positive tree height $\ell > 0$.
+  \item \emph{Pure $\Q$-linear rank-$1$ word-distribution lifts and optimal $2$-cycle averaging} (Section~\ref{sec:trees}) bypass the $\ell > 0$ single-letter spectral obstruction altogether, proving exact $(n-1)^2$ for opposite-drift $2$-cluster automata with arbitrary trees and no strong connectivity or balance (Theorem~\ref{thm:opp-drift}), quadratic bounds for balanced-mixing $2$-cluster automata (Theorem~\ref{thm:mixing}), and exact $(n-1)^2$ / sub-$\frac{3}{2}$ quadratic bounds for arbitrary $c \ge 2$ equal-cycle automata with a cyclic basin-shift letter (Theorem~\ref{thm:cyclic-basin}).
+  \item \emph{Short-collapse cycle engines, Markov short-shift exponential halving, and arithmetic-progression clearance} (Section~\ref{sec:drain-nonsc}) tackle severely unbalanced multi-cluster and $2$-cycle automata where balancing words require $\Omega(n^2)$ length. We resolve full cycle-drain automata (covering the entire Kisielewicz--Szyku\l a extremal family $\cA_{2m-1}$~\cite{KS2015}) to $(5n^2-6n+13)/4$ and exact $(n-1)^2$ when $5m_1 \le 2n$; close 100\% of partial cycle-drain $2$-cycle automata with $2r m_1 < m_2$ to exact $(n-1)^2$; drop the upper bound on $m_1$ whenever $2r\gcd(m_1,m_2) < m_2$ (Theorem~\ref{thm:drain}); and prove exact $(n-1)^2$ for all non-strongly-connected synchronizing $2$-cycle permutation automata (Theorem~\ref{thm:nonsc}).
+  \item \emph{Real-valued remaining-level potentials and matrix-free dual-subspace tier counting} (Section~\ref{sec:stationary}) yield a simplified two-case proof over $\R$ of exact $(n-1)^2$ for almost-uniform stationary vectors and unconditional degree-$1$ quasi-Eulerian automata (Theorem~\ref{thm:almost-uniform}); the first uniform quadratic bound $14\,\rt(\cA) < 29(n-1)^2$ for all $k=2$ two-value stationary vectors over all $\alpha_0 \in \R_{>0}$ alongside denominator-free $O(k n^2)$ bounds for arbitrary $k$ (Theorem~\ref{thm:two-value}); and a self-contained eight-line proof of Szyku\l a's tier lemma~\cite{Szykula2026} proving exact $(n-1)^2$ for positive integer stationary measures up to arbitrary constant excess and logarithmic excess $J \le n + \lfloor \log_2 n \rfloor - 4$ (Theorem~\ref{thm:tier}).
+\end{enumerate}
+Finally, Section~\ref{sec:onecluster} documents our independent Lean~4 formalization of Zhu's July~2026 one-cluster theorem~\cite{Zhu2026} and classical foundations (\v{C}ern\'y's lower bound, Kari's theorem, Dubuc's theorem, and structural $n \le 4$), and Section~\ref{sec:formalization} presents the verification methodology and complete Theorem-to-Lean correspondence. Table~\ref{tab:summary} summarizes our ten main theorems.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.18}
+\begin{tabular}{@{}c>{\raggedright\arraybackslash}p{4.3cm}>{\raggedright\arraybackslash}p{5.8cm}>{\raggedright\arraybackslash}p{3.4cm}@{}}
+\toprule
+\textbf{Thm.} & \textbf{Automaton Class} & \textbf{Reset Threshold Bound} & \textbf{Lean Module} \\
+\midrule
+\ref{thm:cb-equal} & Cluster-balanced equal-cycle perm. & $\le (n-1)^2$ (exact; $1$-ext.\ $\le n$) & \texttt{ClusterBalanced} \\
+\ref{thm:cb-general} & Cluster-balanced arbitrary perm. & $\le 1+(n-2)\max(n,2n-m_1-c) < 2n^2$ & \texttt{ClusterBalanced} \\
+\ref{thm:opp-drift} & Opposite-drift $2$-cluster ($\ell \ge 0$) & $\le (n-1)^2$ ($\le n^2-3n+3$ for $n\ge 6$) & \texttt{AlpogeOppositeDrift} \\
+\ref{thm:mixing} & Balanced-mixing $2$-cluster ($\ell \ge 0$) & $\le 3(n-1)^2$ ($\le 2(n-1)^2$ if $m_1=m_2$) & \texttt{AlpogeThetaLift} \\
+\ref{thm:cyclic-basin} & Cyclic-basin $c$-cluster ($\ell \ge 0$) & $<2(n-1)^2$; $\le (n-1)^2$ ($2m\le n$ or $12m\le 7n$) & \texttt{AlpogeCyclicBasin} \\
+\ref{thm:drain}(a) & Full cycle-drain (incl.\ $\cA_{2m-1}$) & $\le \frac{5n^2-6n+13}{4}$ ($2m_1\le n+1$); $\le (n-1)^2$ ($5m_1\le 2n$) & \texttt{AlpogeCycleDrain} \\
+\ref{thm:drain}(b) & Partial drain ($2rm_1 < m_2$) & $\le (n-1)^2$ for all $r\ge 1, m_1,m_2\ge 2$ & \texttt{PartialDrainExact} \\
+\ref{thm:drain}(c) & Small-$\gcd$ drain ($2rg < m_2$) & $< 5(n-1)^2$ ($r=1$); $<2(n-1)^2$ ($m_1\le m_2$) & \texttt{PartialDrainExact} \\
+\ref{thm:nonsc} & Non-SC $2$-cycle permutation & $\le (m_1-1)^2 + m_2^2 - m_2 + 1 \le (n-1)^2$ & \texttt{TwoCycleNonSC} \\
+\ref{thm:almost-uniform} & Almost-uniform $\pi$ \& QE-1 (no SC) & $\le (n-1)^2$ (unified 2-case over $\R$) & \texttt{AlmostUniform} \\
+\ref{thm:two-value} & Two-value $\pi \in \{1,\alpha_0\}^Q$ ($\R_{>0}$) & $14\rt < 29(n-1)^2$ ($k=2$); $O(kn^2)$ general & \texttt{TwoValueStationary} \\
+\ref{thm:tier} & Super-Eulerian integer $\pi$ & $\le (n-1)^2$ up to $J \le n+\lfloor\log_2 n\rfloor - 4$ & \texttt{TwoValueStationary} \\
+\bottomrule
+\end{tabular}
+\caption{Overview of the ten main machine-verified theorems proved in this paper.}
+\label{tab:summary}
+\end{table}
+
+\paragraph{Matrix conventions.}
+Fix a field $\mathbb{F} \in \{\Q, \R, \C\}$. For each word $w \in \Sigma^*$, let $P_w \in \mathbb{F}^{Q \times Q}$ be the row-stochastic $0$-$1$ transition matrix defined by $(P_w)_{p,q} = 1$ if $p \cdot w = q$ and $0$ otherwise. Then $P_\varepsilon = I$, $P_{uv} = P_u P_v$, and $P_w \one = \one$, where $\one \in \mathbb{F}^{Q \times 1}$ is the all-ones column vector. For $S \subseteq Q$, let $\ind{S} \in \mathbb{F}^{1 \times Q}$ be its indicator row vector and $e_q := \ind{\{q\}}$. Then $P_w \ind{S}^\top = \ind{S w^{-1}}^\top$, so for any $D, S \subseteq Q$, $\ind{D} P_w \ind{S}^\top = |D \cap S w^{-1}|$. Let $V := \mathbb{F}^{1 \times Q}$ (acted on from the right by $P_w$) and let $\cZ := \{v \in V : v \one = 0\}$ ($\dim \cZ = n-1$), which satisfies $\cZ P_w \subseteq \cZ$ for all $w \in \Sigma^*$.
+
+%======================================================================
+\section{Cluster-Balanced Permutation Automata via Confluent Spectral Descent}
+\label{sec:cluster-balanced}
+
+Let $\cA = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA ($n \ge 2$) with finite alphabet $\Sigma$, possessing a \emph{permutation letter} $a \in \Sigma$ ($q \mapsto q \cdot a$ bijective on $Q$). Decompose $Q$ into the disjoint cycles of $a$:
+\[
+  Q = C_1 \sqcup C_2 \sqcup \dots \sqcup C_c \quad (c \ge 1), \qquad m_i := |C_i| \ge 1, \qquad m_1 \le m_2 \le \dots \le m_c, \qquad \sum_{i=1}^c m_i = n.
+\]
+Write $T := P_a$, $M := \lcm(m_1, \dots, m_c) \ge 1$ (so $T^M = I$), and $\Sigma' := \Sigma \setminus \{a\}$. Since $n \ge 2$, $a$ is bijective, and $\cA$ is synchronizing, $\Sigma'$ is nonempty and contains at least one non-bijective letter.
+
+\begin{definition}[Cluster-balanced permutation automaton]
+\label{def:cb}
+A DFA $\cA = (Q, \Sigma, \delta)$ with permutation letter $a \in \Sigma$ (having cycles $C_1, \dots, C_c$) is \emph{cluster-balanced} with respect to $a$ if there exist strictly positive real weights $\beta : \Sigma' \to \R_{>0}$ such that for every cycle $C_j$ ($1 \le j \le c$),
+\begin{equation}
+  \sum_{f \in \Sigma'} \beta_f \, |C_j f^{-1}| = \Bigl(\sum_{f \in \Sigma'} \beta_f\Bigr) |C_j|,
+  \label{eq:cb}
+\end{equation}
+equivalently, $\sum_{f \in \Sigma'} \beta_f \, |C_j f^{-1} \setminus C_j| = \sum_{f \in \Sigma'} \beta_f \, |(Q \setminus C_j) f^{-1} \cap C_j|$ (weighted incoming boundary flow equals weighted outgoing boundary flow for every cycle). The permutation $a$ is \emph{equal-cycle} of length $m \ge 1$ if $m_1 = \dots = m_c = m$ (so $n = cm$).
+\end{definition}
+
+Notice that when $c = 1$ (circular automata), \eqref{eq:cb} holds vacuously for any $\beta > 0$ since $C_1 = Q$; when $c = n$ ($a = \id$), \eqref{eq:cb} is precisely the pseudo-Eulerian condition~\cite{Kari2003,Steinberg2011}. For intermediate $1 < c < n$, the group $\langle a \rangle$ is intransitive, individual states inside each cycle may have arbitrary in-degrees ($0$ to $n$), and the quasi-Eulerian degree can be $\Theta(n)$.
+
+\begin{lemma}[Automatic strong connectivity]
+\label{lem:cb-sc}
+Every synchronizing cluster-balanced permutation DFA $\cA$ is strongly connected.
+\end{lemma}
+\begin{proof}
+Let $w^*$ reset $Q$ to $s \in Q$, and let $K := \{s \cdot u : u \in \Sigma^*\}$. Then $K \neq \emptyset$ and $K \cdot g \subseteq K$ for all $g \in \Sigma$. Because $a$ is bijective on finite $Q$, $K \cdot a = K$, so $K = \bigsqcup_{j \in I} C_j$ is a union of $a$-cycles. Summing the flow form of~\eqref{eq:cb} over $j \in I$ cancels internal edges, leaving
+\[
+  \sum_{f \in \Sigma'} \beta_f \, \ind{Q \setminus K} P_f \ind{K}^\top = \sum_{f \in \Sigma'} \beta_f \, \ind{K} P_f \ind{Q \setminus K}^\top = 0,
+\]
+since $K$ is closed under every $f \in \Sigma'$. Because $\beta_f > 0$, no edge enters $K$ from $Q \setminus K$ under any letter in $\Sigma$. Yet $q \cdot w^* = s \in K$ for every $q \in Q$, forcing $Q \setminus K = \emptyset$ and $K = Q$. Hence for any $p, q \in Q$, choosing $u$ with $s \cdot u = q$ gives $p \cdot (w^* u) = q$.
+\end{proof}
+
+\subsection{Explicit Fourier Projectors, Multiplicity Matching, and Positive Annihilators}
+
+Over $\C$, let $\bmu_M := \{\lambda \in \C : \lambda^M = 1\}$, $\nu(\lambda) := |\{i : \lambda^{m_i} = 1\}|$, and $\Lambda := \{\lambda \in \bmu_M : \nu(\lambda) \ge 1\}$. Define the explicit polynomial operators $E_\lambda := \frac{1}{M}\sum_{j=0}^{M-1} \lambda^{-j} T^j \in \C[T]$.
+
+\begin{lemma}[Fourier spectral decomposition and characteristic polynomial]
+\label{lem:fourier}
+The operators $E_\lambda$ satisfy the following properties:
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item For all $\lambda, \mu \in \bmu_M$, $E_\lambda T = T E_\lambda = \lambda E_\lambda$, $\sum_{\lambda \in \bmu_M} E_\lambda = I$, $E_\lambda E_\mu = \delta_{\lambda,\mu} E_\lambda$, and $\cZ E_\lambda \subseteq \cZ$.
+  \item Setting $V_\lambda := V E_\lambda$ and $V_\lambda^{\cZ} := \cZ E_\lambda = V_\lambda \cap \cZ$, we have $\dim_\C V_\lambda = \nu(\lambda)$ and
+  \[
+    d_\lambda := \dim_\C V_\lambda^{\cZ} = \begin{cases} c - 1 & \text{if } \lambda = 1, \\ \nu(\lambda) & \text{if } \lambda \neq 1. \end{cases}
+  \]
+  Moreover, $E_\lambda = 0$ for $\lambda \notin \Lambda$, and $v E_1 = \sum_{j=1}^c \frac{v \ind{C_j}^\top}{m_j}\ind{C_j}$ for all $v \in V$.
+  \item The degree-$(n-1)$ integer polynomial
+  \[
+    \chi_\cZ(t) := \frac{\prod_{i=1}^c (t^{m_i} - 1)}{t - 1} = (1 + t + \dots + t^{m_1 - 1})\prod_{i=2}^c (t^{m_i} - 1) \in \Z[t]
+  \]
+  has reciprocal $\chi_\cZ^{\mathrm{rev}}(x) := x^{n-1}\chi_\cZ(1/x) = \prod_{\lambda \in \bmu_M} (1 - \lambda x)^{d_\lambda}$, and satisfies $[t^k]\chi_\cZ(t) = +1$ for all $k \in [n - m_1, n - 1]$.
+\end{enumerate}
+\end{lemma}
+\begin{proof}
+Part~(1) is direct orthogonality of characters of $\Z/M\Z$. For~(2), fixing $c_{i,0} \in C_i$ and $c_{i,k} := c_{i,0} \cdot a^k$, the vectors $r_{i,\lambda} := \sum_{k=0}^{m_i - 1} \lambda^{-k} e_{c_{i,k}}$ (for $\lambda^{m_i} = 1$) lie in $V_\lambda$ and are linearly independent by disjointness of cycles, giving $\dim V_\lambda \ge \nu(\lambda)$; summing over $\lambda \in \bmu_M$ yields $n = \sum_\lambda \dim V_\lambda \ge \sum_\lambda \nu(\lambda) = \sum_i m_i = n$, forcing equality for every $\lambda$. For $\lambda \neq 1$, $r_{i,\lambda}\one = 0$, so $V_\lambda \subseteq \cZ$; for $\lambda = 1$, $V_1 = \operatorname{span}\{\ind{C_1}, \dots, \ind{C_c}\}$ meets $\cZ$ in codimension~$1$. For~(3), expanding $\prod_{i=2}^c(t^{m_i} - 1) = t^{n - m_1} + R(t)$ has $\deg R \le n - m_1 - m_2$, so multiplying by $\sum_{j=0}^{m_1-1} t^j$ yields $R(t)\sum_{j=0}^{m_1-1} t^j$ of degree $\le n - m_2 - 1 \le n - m_1 - 1$ (since $m_1 \le m_2$), leaving $[t^k]\chi_\cZ(t) = +1$ on $[n - m_1, n - 1]$.
+\end{proof}
+
+Set $\pi := \ind{Q}$ (uniform row vector), $u_f := \pi(P_f - I) \in \cZ$ for $f \in \Sigma'$, and $u_{\mathrm{mix}} := \sum_{f \in \Sigma'} \beta_f u_f \in \cZ$. By~\eqref{eq:cb}, $u_{\mathrm{mix}}\ind{C_j}^\top = 0$ for every $j \in \{1,\dots,c\}$, so Lemma~\ref{lem:fourier}(2) yields
+\begin{equation}
+  u_{\mathrm{mix}} E_1 = 0.
+  \label{eq:umix-e1}
+\end{equation}
+
+\begin{lemma}[Positive gap-free annihilating polynomial $P_{\mathrm{pos}}$]
+\label{lem:ppos}
+There exists an integer polynomial $P_{\mathrm{pos}}(t) = \sum_{s=0}^d p_s t^s \in \Z[t]$ such that $p_s \ge 1$ for all $0 \le s \le d$ and $P_{\mathrm{pos}}(\lambda) = 0$ for all $\lambda \in \Lambda \setminus \{1\}$, with degree:
+\begin{enumerate}[label=(\alph*),nosep]
+  \item $d = m - 1 = m_1 - 1$ when $m_1 = \dots = m_c = m$, via $P_{\mathrm{pos}}(t) = \sum_{j=0}^{m-1} t^j$;
+  \item $d \le n - c$ for arbitrary $m_1 \le \dots \le m_c$.
+\end{enumerate}
+For any such $P_{\mathrm{pos}}$, we have $u_{\mathrm{mix}} P_{\mathrm{pos}}(T) = 0$ and $(T - I)P_{\mathrm{pos}}(T) = 0$, so $\{I, T, \dots, T^d\}$ spans $\C[T]$ on~$V$.
+\end{lemma}
+\begin{proof}
+For~(b), let $m^{(1)} < \dots < m^{(k)}$ be the distinct cycle lengths (or maximal ones under divisibility). Define $B_1(t) := \sum_{j=0}^{m^{(1)}-1} t^j$, and inductively $B_i(t) := B_{i-1}(t)\sum_{j=0}^{m^{(i)}-1} t^j$ (or, saving $\gcd$ factors, using $g_i := \max_{j < i}\gcd(m^{(i)}, m^{(j)})$ and multiplying by $\sum_{s=0}^{m^{(i)}/g_i - 1} t^{s g_i}$). At each step, convolving a gap-free positive polynomial of degree $\ge g_i - 1$ with a uniform progression of step $g_i$ preserves strict positivity of every coefficient up to the degree, $(t-1)B_k(t)$ vanishes on all of $\Lambda$, and $\deg B_k \le \sum_{i=1}^c (m_i - 1) = n - c$. Finally, $u_{\mathrm{mix}} P_{\mathrm{pos}}(T) = u_{\mathrm{mix}} E_1 P_{\mathrm{pos}}(1) + \sum_{\lambda \in \Lambda \setminus \{1\}} u_{\mathrm{mix}} E_\lambda P_{\mathrm{pos}}(\lambda) = 0$ by~\eqref{eq:umix-e1}, and $(T - I)P_{\mathrm{pos}}(T) = \sum_{\lambda \in \Lambda} (\lambda - 1) P_{\mathrm{pos}}(\lambda) E_\lambda = 0$.
+\end{proof}
+
+\subsection{Confluent Divided-Difference Vanishing and Theorems~\texorpdfstring{\ref{thm:cb-equal}--\ref{thm:cb-general}}{2.1--2.2}}
+
+For $r \ge 0$, define the control-filtered subspaces $\cL_r := \operatorname{span}_\C\{u_f P_w : f \in \Sigma',\; |w|_{\Sigma'} \le r\} \subseteq \cZ$, where $|w|_{\Sigma'}$ counts occurrences of letters from $\Sigma'$.
+
+\begin{lemma}[Higher-multiplicity control deletion]
+\label{lem:hm-del}
+Let $r \ge 1$, $g_1, \dots, g_r \in \Sigma'$, and $\boldsymbol{\alpha} = (\alpha_0, \dots, \alpha_r) \in \bmu_M^{r+1}$. If either $\alpha_0 = 1$, or some $\lambda \in \bmu_M$ appears strictly more than $d_\lambda$ times in $\boldsymbol{\alpha}$, then
+\[
+  u_{\mathrm{mix}} E_{\alpha_0} P_{g_1} E_{\alpha_1} \cdots P_{g_r} E_{\alpha_r} \in \cL_{r-1}.
+\]
+\end{lemma}
+\begin{proof}
+If $\alpha_0 = 1$, the vector vanishes by~\eqref{eq:umix-e1}. Otherwise, let $0 \le p_1 < \dots < p_{d_\lambda + 1} \le r$ be $d_\lambda + 1$ positions with $\alpha_{p_i} = \lambda$. The prefix vectors $\widetilde{x}_i := u_{\mathrm{mix}} E_{\alpha_0} P_{g_1} \cdots P_{g_{p_i}} E_\lambda$ all lie in $V_\lambda^\cZ$ ($\dim V_\lambda^\cZ = d_\lambda$), hence are linearly dependent. Expressing the earliest dependent $\widetilde{x}_q$ as a linear combination of $\widetilde{x}_1, \dots, \widetilde{x}_{q-1}$ and right-multiplying by $P_{g_{p_q+1}} E_{\alpha_{p_q+1}} \cdots P_{g_r} E_{\alpha_r}$ reduces the number of control letters in every term to $p_j + (r - p_q) \le r - 1$, putting the vector in $\cL_{r-1}$.
+\end{proof}
+
+\begin{lemma}[Confluent divided-difference vanishing]
+\label{lem:divdiff}
+Let $1 \le r \le n - 2$ and let $\boldsymbol{\alpha} = (\alpha_0, \dots, \alpha_r) \in \bmu_M^{r+1}$ satisfy $|\{k : \alpha_k = \lambda\}| \le d_\lambda$ for all $\lambda \in \bmu_M$. Letting $h_s(\boldsymbol{\alpha}) := \sum_{h_0 + \dots + h_r = s} \alpha_0^{h_0} \cdots \alpha_r^{h_r}$ denote the complete homogeneous symmetric polynomial of degree~$s$, we have
+\[
+  \sum_{k = r}^{n - 1} \bigl([t^k]\chi_\cZ(t)\bigr)\, h_{k - r}(\alpha_0, \dots, \alpha_r) = 0.
+\]
+\end{lemma}
+\begin{proof}
+Let $D := n - 1 - r \ge 1$ and $H_{\boldsymbol{\alpha}}(x) := \sum_{s=0}^D h_s(\alpha_0, \dots, \alpha_r) x^s \in \C[x]$. Induction on $r$ verifies $(\prod_{j=0}^r (1 - \alpha_j x)) H_{\boldsymbol{\alpha}}(x) \equiv 1 \pmod{x^{D+1}}$. By the multiplicity hypothesis and Lemma~\ref{lem:fourier}(3), $\chi_\cZ^{\mathrm{rev}}(x) = (\prod_{j=0}^r (1 - \alpha_j x)) R(x)$ with $\deg R = (n-1) - (r+1) = D - 1 < D$. Multiplying the congruence by $R(x)$ yields $\chi_\cZ^{\mathrm{rev}}(x) H_{\boldsymbol{\alpha}}(x) \equiv R(x) \pmod{x^{D+1}}$, and extracting $[x^D]$ gives $0 = [x^D]R(x) = \sum_{j=0}^D ([t^{n-1-j}]\chi_\cZ(t)) h_{D-j}(\boldsymbol{\alpha}) = \sum_{k=r}^{n-1} ([t^k]\chi_\cZ(t)) h_{k-r}(\boldsymbol{\alpha})$.
+\end{proof}
+
+Fix $P_{\mathrm{pos}}(t) = \sum_{s=0}^d p_s t^s$ from Lemma~\ref{lem:ppos}, set $S_P := d + 1$, $C_0 := 1 + \max_k |[t^k]\chi_\cZ(t)|$, and $L(a) := \max(n, n + d - m_1)$. For $1 \le r \le n - 2$, define the asymmetric block-shifted polynomial
+\begin{multline}
+  W_r(x_0, \dots, x_r) := \sum_{k=r}^{n-1} \bigl([t^k]\chi_\cZ(t)\bigr)\, h_{k-r}(x_0, \dots, x_r) \\
+  + C_0 \sum_{\substack{q \ge 0,\; h_1, \dots, h_r \ge 0 \\ q S_P + h_1 + \dots + h_r \le n - m_1 - 1 - r}} x_0^{q S_P} P_{\mathrm{pos}}(x_0)\, x_1^{h_1} \cdots x_r^{h_r}.
+  \label{eq:Wr}
+\end{multline}
+Write $W_r(x_0, \dots, x_r) = \sum_{\mathbf{h}} c_r(\mathbf{h}) x_0^{h_0} \cdots x_r^{h_r}$ and set
+\[
+  \Omega_r^{\mathrm{mix}}(g_1, \dots, g_r) := \sum_{\mathbf{h}} c_r(\mathbf{h})\, u_{\mathrm{mix}} T^{h_0} P_{g_1} \cdots P_{g_r} T^{h_r}.
+\]
+
+\begin{proposition}[Positivity, coverage, length, and descent]
+\label{prop:Wr}
+For all $1 \le r \le n - 2$ and $g_1, \dots, g_r \in \Sigma'$:
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item $c_r(\mathbf{h}) \ge 0$ for all $\mathbf{h}$, and $c_r(\mathbf{h}) \ge 1$ whenever $\tau(\mathbf{h}) := h_0 + \dots + h_r \le n - 1 - r$.
+  \item Every $\mathbf{h}$ with $c_r(\mathbf{h}) > 0$ satisfies $1 + r + \tau(\mathbf{h}) \le L(a) = \max(n, n + d - m_1)$.
+  \item $\Omega_r^{\mathrm{mix}}(g_1, \dots, g_r) \in \cL_{r-1}$.
+\end{enumerate}
+\end{proposition}
+\begin{proof}
+For~(1), if $n - m_1 - r \le \tau(\mathbf{h}) \le n - 1 - r$, then Lemma~\ref{lem:fourier}(3) gives $[t^{r+\tau(\mathbf{h})}]\chi_\cZ(t) = +1$, while the second sum is nonnegative; if $\tau(\mathbf{h}) \le n - m_1 - 1 - r$, dividing $h_0 = q S_P + s$ ($0 \le s \le d$) puts $(q, h_1, \dots, h_r)$ in the second sum, adding $C_0 p_s \ge C_0$ to cancel any negative coefficient $\ge -(C_0 - 1)$ from the first sum. For~(2), any monomial in the second sum has $\tau(\mathbf{h}) \le (n - m_1 - 1 - r) + d$, so $1 + r + \tau(\mathbf{h}) \le n + d - m_1 \le L(a)$. For~(3), insert $I = \sum_{\lambda \in \bmu_M} E_\lambda$ at all $r+1$ spectral gaps to obtain $\sum_{\boldsymbol{\alpha}} W_r(\alpha_0, \dots, \alpha_r) u_{\mathrm{mix}} E_{\alpha_0} P_{g_1} \cdots P_{g_r} E_{\alpha_r}$: every tuple $\boldsymbol{\alpha}$ either lands in $\cL_{r-1}$ by Lemma~\ref{lem:hm-del}, or has $\alpha_0 \in \Lambda \setminus \{1\}$ and multiplicities $\le d_\lambda$, in which case $W_r(\boldsymbol{\alpha}) = 0$ by Lemmas~\ref{lem:ppos} and~\ref{lem:divdiff}.
+\end{proof}
+
+By a standard Cayley--Hamilton induction on $d_r := \dim_\C \cL_r$, we have $d_0 \ge 1$ (since $u_f = 0$ for all $f$ would make $\pi$ invariant under a reset word, impossible for $n \ge 2$), $\cL_r = \cL_{n-2}$ for all $r \ge n - 2$, and whenever $d_r > d_{r-1}$ the quotient $\cL_r/\cL_{r-1}$ is spanned by cosets of $r$-control generators $u_f T^{h_0} P_{g_1} \cdots P_{g_r} T^{h_r}$ with $\tau(\mathbf{h}) \le d_r - 1 - r \le n - 2 - r$.
+
+\begin{theorem}[Exact $(n-1)^2$ for cluster-balanced equal-cycle permutation automata]
+\label{thm:cb-equal}
+Let $\cA = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA ($n \ge 1$, finite $\Sigma$) that is cluster-balanced with respect to an equal-cycle permutation letter $a \in \Sigma$ of cycle length $m \ge 1$. Then:
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item For every nonempty proper subset $S \subsetneq Q$, there exists $w \in \Sigma^*$ with $|w| \le n$ and $|S w^{-1}| > |S|$.
+  \item $\rt(\cA) \le (n - 1)^2$.
+\end{enumerate}
+In particular, setting $c = 1$ recovers Dubuc's circular theorem~\cite{Dubuc1998} (lifted in \texttt{Cerny/Circular.lean} to arbitrary, possibly infinite alphabets~$\Sigma$).
+\end{theorem}
+
+\begin{theorem}[Quadratic bound for arbitrary-cycle cluster-balanced permutation automata]
+\label{thm:cb-general}
+Let $\cA = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA ($n \ge 1$, finite $\Sigma$) that is cluster-balanced with respect to a permutation letter $a \in \Sigma$ having $c$ cycles and minimum cycle length $m_1$. Then
+\[
+  \rt(\cA) \le 1 + (n - 2)\max(n,\, 2n - m_1 - c) \le 2(n - 1)^2 < 2n^2.
+\]
+\end{theorem}
+
+\begin{proof}[Proof of Theorems~\ref{thm:cb-equal} and~\ref{thm:cb-general}]
+For $n = 1$, $\varepsilon$ synchronizes $\cA$. Assume $n \ge 2$ and fix a nonempty proper subset $S \subsetneq Q$. Write $\mu(w) := \pi P_w \ind{S}^\top = |S w^{-1}|$, and suppose for contradiction that $\mu(w) \le \mu(\varepsilon)$ for all $|w| \le L(a)$. We prove $\cL_r \perp \ind{S}^\top$ by induction on $0 \le r \le n - 2$:
+\begin{itemize}[nosep]
+  \item \emph{Base $r = 0$:} Since $1 + d \le L(a)$, Lemma~\ref{lem:ppos} gives
+  \[
+    0 = u_{\mathrm{mix}} P_{\mathrm{pos}}(T)\ind{S}^\top = \sum_{f \in \Sigma'} \sum_{j=0}^d \beta_f p_j \bigl(\mu(f a^j) - \mu(\varepsilon)\bigr),
+  \]
+  a strictly positively weighted sum of nonpositive terms. Hence every term vanishes, and since $\{I, \dots, T^d\}$ spans $\C[T]$, $\cL_0 \perp \ind{S}^\top$.
+  \item \emph{Step $r - 1 \to r$:} Assuming $\cL_{r-1} \perp \ind{S}^\top$, induction on $|x|_{\Sigma'} \le r$ shows $\mu(x) = \mu(\varepsilon)$ (peeling off the leftmost control letter $g$ shifts $\mu$ by $u_g P_z \ind{S}^\top = 0$). Hence $u_f P_x \ind{S}^\top = \mu(fx) - \mu(\varepsilon)$ for every $|x|_{\Sigma'} = r$. By Proposition~\ref{prop:Wr}(3),
+  \[
+    0 = \Omega_r^{\mathrm{mix}}(g_1, \dots, g_r)\ind{S}^\top = \sum_{f, \mathbf{h}} \beta_f c_r(\mathbf{h})\bigl(\mu(f a^{h_0} g_1 \cdots g_r a^{h_r}) - \mu(\varepsilon)\bigr).
+  \]
+  By Proposition~\ref{prop:Wr}(1)--(2), every positive term has word length $\le L(a)$ (hence $\le 0$) and covers all $\tau(\mathbf{h}) \le n - 1 - r$. Thus every generator of $\cL_r / \cL_{r-1}$ is orthogonal to $\ind{S}^\top$, giving $\cL_r \perp \ind{S}^\top$.
+\end{itemize}
+By stabilization, $\cL_r \perp \ind{S}^\top$ for all $r \ge 0$, whence $\mu(w) = \mu(\varepsilon) = |S|$ for \emph{every} $w \in \Sigma^*$. Let $w^*$ reset $Q$ to $q_0$. By Lemma~\ref{lem:cb-sc} ($\cA$ is strongly connected), choose $v$ with $q_0 \cdot v \in S$; then $w^* v$ resets $Q$ into $S$, giving $n = \mu(w^* v) = |S| < n$, contradiction!
+
+Thus every nonempty proper $S \subsetneq Q$ extends in length $\le L(a)$. Starting from a non-injective letter $b$ (choosing $q_0$ with $|\{q_0\}b^{-1}| \ge 2$, length $1$) and iterating at most $n - 2$ extensions gives $\rt(\cA) \le 1 + (n-2)L(a)$. For equal cycles, Lemma~\ref{lem:ppos}(a) gives $d = m_1 - 1$, so $L(a) = n$ and $\rt(\cA) \le 1 + (n-2)n = (n-1)^2$; for general cycles, Lemma~\ref{lem:ppos}(b) gives $d \le n - c$, so $L(a) \le \max(n, 2n - m_1 - c) \le 2n - 2$, yielding $\rt(\cA) \le 1 + (n-2)(2n-2) \le 2(n-1)^2 < 2n^2$.
+\end{proof}
+
+\begin{remark}[Three structural spectral obstructions]
+\label{rem:obstructions}
+Our proof of Theorems~\ref{thm:cb-equal} and~\ref{thm:cb-general} encounters three sharp boundaries that clarify why Sections~\ref{sec:trees}--\ref{sec:drain-nonsc} adopt genuinely new mechanisms:
+\begin{enumerate}[label=(\roman*),nosep]
+  \item \emph{No sub-$\lcm$ symmetric annular identity:} any symmetric nonnegative polynomial $W(\mathbf{x}) = \sum c(\sum h_i) x_0^{h_0} \cdots x_r^{h_r}$ annihilating the $\lambda = 1$ pole requires degree $\ge \lcm(m_1, \dots, m_c) - 1$; thus asymmetry in~\eqref{eq:Wr} (shifting $P_{\mathrm{pos}}$ exclusively onto $x_0$) is mathematically forced.
+  \item \emph{Unequal-cycle $1$-extensibility phase transition:} even cluster-balanced unequal-cycle automata genuinely violate $|w| \le n$ for single-step subset extension (for instance, balanced $2$-cycle automata with cycle types $(1,4)$, $(1,6)$, and $(2,6)$ admit subsets whose shortest extending words have lengths $6 > 5$, $8 > 7$, and $9 > 8$).
+  \item \emph{The $\ell > 0$ nilpotent--unit obstruction:} when $c \ge 2$ clusters are accompanied by tree states of height $\ell \ge 1$, the mixed nilpotent--unit mode $(\alpha_0 = N, \alpha_1 = 1)$ produces strictly positive total weight $\sum_{h_1} c(h_0, h_1)$ for $h_0 < \ell$, obstructing direct single-letter annular descent.
+\end{enumerate}
+\end{remark}
+
+%======================================================================
+\section{Multi-Cluster Automata with Arbitrary Trees \texorpdfstring{($\ell \ge 0$)}{(l >= 0)}}
+\label{sec:trees}
+
+To breach the $\ell > 0$ obstruction of Remark~\ref{rem:obstructions}(iii) without strong connectivity or complex spectral projectors, we work entirely over $\Q$ using explicit nonnegative cycle-averaging distributions and exact rank-$1$ word-distribution lifts.
+
+\begin{definition}[$2$-cluster and cyclic-basin data]
+\label{def:twocluster}
+Let $\cA = (Q, \Sigma, \delta)$ be a DFA ($n = |Q|$).
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item A \emph{$2$-cluster structure} for a letter $a \in \Sigma$ consists of disjoint nonempty $a$-invariant transitive cycles $C_1, C_2 \subseteq Q$ of lengths $m_1 := |C_1|, m_2 := |C_2|$ ($C := C_1 \sqcup C_2$, $m := m_1 + m_2$), disjoint basins $B_1 \sqcup B_2 = Q$, and tree height $\ell \in \N$ such that $B_i \cdot a^\ell \subseteq C_i$ ($i = 1, 2$) and $\ell + m \le n$. For any word $u \in \Sigma^*$, define the cross-basin fluxes
+  \[
+    k_{12}(u) := |\{q \in C_1 : q \cdot u \in B_2\}|, \qquad k_{21}(u) := |\{q \in C_2 : q \cdot u \in B_1\}|,
+  \]
+  and normalized cross-basin probabilities $p_{12}(u) := k_{12}(u)/m_1$, $p_{21}(u) := k_{21}(u)/m_2$.
+  \item A \emph{cyclic-basin structure} for $(a, b) \in \Sigma^2$ with parameters $c \ge 2, m_0 \ge 1$ ($m := c m_0$) consists of $c$ pairwise disjoint $a$-cycles $C_0, \dots, C_{c-1}$ each of length $m_0$ ($C := \bigsqcup_i C_i$), pairwise disjoint covering basins $B_0, \dots, B_{c-1}$ ($\bigsqcup_i B_i = Q$), and $\ell \in \N$ with $\ell + m \le n$ and $B_i \cdot a^\ell \subseteq C_i$, such that $b$ (not required to be bijective) shifts basins cyclically: $B_i \cdot b \subseteq B_{(i+1)\bmod c}$ for all $0 \le i < c$.
+\end{enumerate}
+\end{definition}
+
+\begin{lemma}[Optimal degree-$(m-g-1)$ nonnegative $2$-cycle averaging]
+\label{lem:opt-avg}
+Given a $2$-cluster structure for $a \in \Sigma$, set $g := \gcd(m_1, m_2)$, $q_2 := m_2 / g$, and $d_a := m_1 + m_2 - g - 1 = m - g - 1$. The uniform probability distribution over $\{a^{\ell + i + r g} : 0 \le i < m_1,\; 0 \le r < q_2\}$ has maximum word length $\ell + d_a$ and exact transition matrix
+\[
+  E_1(a) := \frac{1}{m_1 q_2} \sum_{i=0}^{m_1 - 1} \sum_{r=0}^{q_2 - 1} P_a^{\ell + i + r g} = \frac{1}{m_1}\ind{B_1}^\top \ind{C_1} + \frac{1}{m_2}\ind{B_2}^\top \ind{C_2}.
+\]
+\end{lemma}
+\begin{proof}
+The maximum exponent is $\ell + (m_1 - 1) + (q_2 - 1)g = \ell + d_a$. If $q \in B_1$, then $y := q \cdot a^\ell \in C_1$, and for each fixed $r$, $(y \cdot a^{rg}) \cdot a^i$ visits $C_1$ uniformly as $0 \le i < m_1$. If $q \in B_2$, write $i = i_0 + k g$ ($0 \le i_0 < g$, $0 \le k < m_1/g$); for each fixed $k$, $i_0 + r g$ ranges bijectively over $\{0, \dots, m_2 - 1\}$, so $(y \cdot a^{kg}) \cdot a^{i_0 + rg}$ visits $C_2$ uniformly.
+\end{proof}
+
+\begin{lemma}[Multi-cluster singleton start without strong connectivity]
+\label{lem:mc-start}
+Let $\cA$ be a synchronizing $n$-state DFA, $a \in \Sigma$, $C \subseteq Q$ with $m := |C| \ge 2$ on which $a$ acts bijectively, and $\ell \in \N$ with $Q \cdot a^\ell \subseteq C$. Then there exist $q_0 \in C$ and $w_{\mathrm{init}} \in \Sigma^*$ such that
+\[
+  |w_{\mathrm{init}}| \le (n - m) + 1 + \ell \qquad\text{and}\qquad |\{q_0\} w_{\mathrm{init}}^{-1} \cap C| \ge 2.
+\]
+\end{lemma}
+\begin{proof}
+For each $q \in C$, set $\gamma_{\{q\}}(x) := \one_{x=q} - \frac{1}{m} \in \Q^Q$ and $z_q := P_a^\ell \gamma_{\{q\}}$. Let $H_C := \{v \in \Q^Q : \sum_{p \in C} v(p) = 0\}$ ($\dim_\Q H_C = n - 1$) and $W_k := \operatorname{span}_\Q\{P_u z_q : |u| \le k,\; q \in C\}$. Because $a^\ell|_C$ is bijective and $Q \cdot a^\ell \subseteq C$, we have $W_0 \subseteq H_C$, $\sum_{q \in C} z_q = 0$, and $\dim_\Q W_0 = m - 1$ (by restriction to $C$). If $w^*$ resets $Q$ to $r_0$ and $q^* := r_0 \cdot a^\ell \in C$, then $(P_{w^*} z_{q^*})(p) = 1 - \frac{1}{m}$ for all $p \in Q$, so $\sum_{p \in C} (P_{w^*} z_{q^*})(p) = m - 1 > 0$ and $P_{w^*} z_{q^*} \notin H_C$. Thus $j_0 := \min\{k : W_k \not\subseteq H_C\}$ satisfies $(m - 1) + (j_0 - 1) \le n - 1$, i.e., $j_0 \le n - m + 1$. Pick $|u| \le n - m + 1$ and $q' \in C$ with $\sum_{p \in C}(P_u z_{q'})(p) \neq 0$; since $\sum_{q \in C} \sum_{p \in C} (P_u z_q)(p) = 0$, some $q_0 \in C$ has $\sum_{p \in C} (P_u z_{q_0})(p) > 0$, so $w_{\mathrm{init}} := u a^\ell$ satisfies $|w_{\mathrm{init}}| \le (n - m) + 1 + \ell$ and $|\{q_0\} w_{\mathrm{init}}^{-1} \cap C| \ge 2$.
+\end{proof}
+
+\subsection{Opposite-Drift \texorpdfstring{$2$}{2}-Cluster Automata (Exact \texorpdfstring{$(n-1)^2$}{(n-1)\textasciicircum 2} for Arbitrary Trees)}
+
+\begin{theorem}[Opposite-drift $2$-cluster automata with arbitrary trees $\ell \ge 0$]
+\label{thm:opp-drift}
+Let $\cA = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA ($n \ge 2$; no strong connectivity, balance, or mixing assumed) equipped with a $2$-cluster structure for $a \in \Sigma$ ($m = m_1 + m_2$, $g = \gcd(m_1, m_2)$, $d_a = m - g - 1$, $c_3 := \min(g - 1, m - 2)$). Suppose there exist words $u_+, u_- \in \Sigma^*$ of lengths $|u_+|, |u_-| \le L_0$ satisfying
+\[
+  k_{21}(u_+) > k_{12}(u_+) \qquad\text{and}\qquad k_{12}(u_-) > k_{21}(u_-).
+\]
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item \emph{General $L_0$:} $\rt(\cA) \le \ell + (m - 2)\bigl(\max(L_0, n - 1) + \ell + d_a\bigr) + (n - m + 1 + \ell)$.
+  \item \emph{Linear flux witnesses ($L_0 \le n - 1$):}
+  \begin{align*}
+    \rt(\cA) &\le \ell + c_3(n - 1 + \ell + d_a) + (m - 2 - c_3)(L_0 + \ell + d_a) + (n - m + 1 + \ell) \\
+             &\le 2n^2 - 7n + 7 < 2(n-1)^2.
+  \end{align*}
+  Moreover, $\rt(\cA) \le (n-1)^2$ whenever $2m \le n$; and if $m_1 = m_2$, then $2\,\rt(\cA) \le 3(n-1)^2$ always and $\rt(\cA) \le (n-1)^2$ whenever $12m \le 7n$.
+  \item \emph{Opposite-drift letters ($L_0 = 1$, i.e., $b_+, b_- \in \Sigma$):} for ALL $n \ge 2$, ALL $(m_1, m_2)$, and ALL $\ell \le n - m$,
+  \[
+    \rt(\cA) \le (n - 1)^2, \qquad\text{and}\qquad \rt(\cA) \le n^2 - 3n + 3 \quad (\text{for all } n \ge 6).
+  \]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+For any nonempty proper $S \subsetneq C$ with $s_i := |S \cap C_i|$ and $s := s_1 + s_2$, define $\gamma_S(q) := \one_{q \in S} - \frac{s}{m}$ and $D(S) := s_1 m_2 - s_2 m_1 \in \Z$. By Lemma~\ref{lem:opt-avg}, $(E_1(a)\gamma_S)(q) = \frac{D(S)}{m_1 m}$ on $B_1$ and $-\frac{D(S)}{m_2 m}$ on $B_2$.
+\begin{itemize}[nosep]
+  \item \emph{Cases~1 \&~2 ($D(S) \neq 0$):} For any word $u$, writing $X := |C \cap B_1 u^{-1}| = m_1 + k_{21}(u) - k_{12}(u)$ gives
+  \[
+    \sum_{q \in C} (P_u E_1(a) \gamma_S)(q) = \frac{D(S)}{m}\Bigl(\frac{X}{m_1} - \frac{m - X}{m_2}\Bigr) = \frac{D(S)}{m_1 m_2}\bigl(k_{21}(u) - k_{12}(u)\bigr).
+  \]
+  Choosing $u := u_+$ if $D(S) > 0$ and $u := u_-$ if $D(S) < 0$ makes this average strictly positive, so some $(i, r)$ yields $w := u a^{\ell + i + rg}$ of length $\le L_0 + \ell + d_a$ with $|S w^{-1} \cap C| > |S|$.
+  \item \emph{Case~3 ($D(S) = 0$):} Here $E_1(a)\gamma_S = 0$ identically on $Q$, so for \emph{every} $u \in \Sigma^*$,
+  \[
+    \frac{1}{m_1 q_2}\sum_{i=0}^{m_1-1}\sum_{r=0}^{q_2-1}\sum_{q \in C}(P_{u a^{\ell + i + rg}}\gamma_S)(q) = 0.
+  \]
+  The ascending subspace chain $W_k := \operatorname{span}_\Q\{P_{u a^{\ell + i + rg}}\gamma_S : |u| \le k\}$ escapes $H_C := \{v : \sum_{q \in C} v(q) = 0\}$ ($\dim H_C = n - 1$) at some $k_0 \le n - 1$ (since $P_{a^\ell}\gamma_S \neq 0$ and a reset word $w^*$ gives constant nonzero $P_{w^* a^\ell}\gamma_S \notin H_C$). Zero expectation then yields $w := u a^{\ell + i + rg}$ of length $\le n - 1 + \ell + d_a$ with $|S w^{-1} \cap C| > |S|$.
+\end{itemize}
+Starting from Lemma~\ref{lem:mc-start} ($|S_0| \ge 2$, $|w_{\mathrm{init}}| \le n - m + 1 + \ell$) and iterating yields a strictly increasing chain $2 \le |S_0| < \dots < |S_k| = m$ ($k \le m - 2$). At any Case-3 step, $s_1 m_2 = s_2 m_1$ forces $|S_r| = \tau \cdot (m/g)$ for some $\tau \in \{1, \dots, g - 1\}$, so Case~3 occurs at most $c_3 = \min(g - 1, m - 2)$ times! Prepending $a^\ell$ ($Q \cdot a^\ell \subseteq C$) yields~(1) and the master inequality of~(2).
+
+For~(3) ($L_0 = 1$): if $m = 2$, $k = 0$ and $\rt(\cA) \le 2\ell + (n-2) + 1 \le 3n - 5 \le (n-1)^2$ (and $\le n^2 - 3n + 3$ for $n \ge 6$). If $m \ge 3$, using $\ell \le t := n - m$, $c_3 \le g - 1$, $d_a = m - g - 1$, and $2g \le m$ yields
+\[
+  R \le 3(n - m) + 1 + (m - 2)(n - g) + (g - 1)(n - 2) = mn - 3m + 3 + g(n - m),
+\]
+so $2R \le -m^2 + (3n - 6)m + 6 = 2(n-1)^2 - \bigl(t^2 + (n - 6)t + 2n - 4\bigr) < 2(n-1)^2$ for all $n \ge 3$ (checking $n = 3, 4, 5$ directly: $t^2 + (n-6)t + 2n - 4 > 0$; and for $n \ge 6$, $2R \le 2n^2 - 6n + 6$, giving $R \le n^2 - 3n + 3$). The remaining corollaries of~(2) follow by analogous quadratic maximization in $m$.
+\end{proof}
+
+\subsection{Exact Rank-\texorpdfstring{$1$}{1} Lifts: Mixing \texorpdfstring{$2$}{2}-Cluster and Cyclic-Basin Multi-Cluster Automata}
+
+\begin{lemma}[Exact rank-$1$ word-distribution extension over $\Q$]
+\label{lem:rank1}
+Let $\cA$ be a synchronizing $n$-state DFA ($n \ge 2$; no strong connectivity assumed), $C \subseteq Q$ nonempty, $\pi : Q \to \Q_{\ge 0}$ with $\supp(\pi) = C$ and $\sum_{q \in C} \pi(q) = 1$, and a finite weighted family $(\mu_i, w_i)_{i \in \iota}$ ($\mu_i \ge 0$, $\sum \mu_i = 1$, $|w_i| \le L_1$ whenever $\mu_i > 0$) with exact rank-$1$ matrix $\sum_{i \in \iota} \mu_i P_{w_i} = \one \pi$. Then for every nonempty proper $S \subsetneq C$:
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item There exists $w \in \Sigma^*$ with $|w| \le n - 1 + L_1$ and $\pi(S w^{-1}) > \pi(S)$.
+  \item If additionally $\pi(S) \neq \frac{1}{2}$, then there exists $w \in \Sigma^*$ with $|w| \le n - 2 + L_1$ and $\pi(S w^{-1}) > \pi(S)$.
+  \item If $\pi$ is uniform on $C$ ($\pi(q) = \frac{1}{|C|}$ on $C$) and $Q \cdot w_{\mathrm{in}} \subseteq C$ ($|w_{\mathrm{in}}| \le \ell$), then $\rt(\cA) \le \ell + (|C| - 1)(n - 1 + L_1)$.
+\end{enumerate}
+\end{lemma}
+\begin{proof}
+Set $\gamma_S(q) := \one_{q \in S} - \pi(S)$, $H := \{x \in \Q^Q : \pi \cdot x = 0\}$ ($\dim_\Q H = n - 1$), and $W_k := \operatorname{span}_\Q\{P_u P_{w_i} \gamma_S : |u| \le k,\; \mu_i > 0\}$. Because $Q_\mu = \one \pi$, every $u \in \Sigma^*$ satisfies $\sum_i \mu_i (\pi \cdot P_{u w_i} \gamma_S) = (\pi P_u \one)(\pi \cdot \gamma_S) = 0$. Since $0 < \pi(S) < 1$, $\dim W_0 \ge 1$ and synchronization forces $W_{|w^*|} \not\subseteq H$, giving $k_0 := \min\{k : W_k \not\subseteq H\} \le n - 1$ and proving~(1). For~(2), if $k_0 \ge 1$ and $\dim W_0 = 1$, then $v_i := P_{w_i}\gamma_S = c_i v_0$ for all $\mu_i > 0$. Since $v_0 \in H$ takes both values $1 - p$ and $-p$ ($p := \pi(S)$), any $c_i \neq 1$ forces $c_i(1-p) = -p$ and $c_i(-p) = 1-p$, whence $p^2 = (1-p)^2$, contradicting $p \neq \frac{1}{2}$. Hence $v_i = v_0$ for all $\mu_i > 0$, contradicting $0 = (Q_\mu \gamma_S)(q_1) = v_0(q_1) = 1 - p > 0$. Thus $\dim W_0 \ge 2$ and $k_0 \le n - 2$. Part~(3) iterates~(1) at most $|C|-1$ times from a singleton in $C$ and prepends $w_{\mathrm{in}}$.
+\end{proof}
+
+\begin{theorem}[Two-letter mixing lift for balanced $2$-cluster automata with $\ell \ge 0$]
+\label{thm:mixing}
+Let $\cA$ be a synchronizing $n$-state DFA equipped with a $2$-cluster structure for $a \in \Sigma$ ($m = m_1 + m_2$, arbitrary $\ell \le n - m$) and a letter $b \in \Sigma$ satisfying cluster balance $k_{12}(b) = k_{21}(b)$ and cross-cluster mixing $p_{12}(b) + p_{21}(b) \ge 1$. Then:
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item $\rt(\cA) \le \ell + (m - 1)(n + 2\ell + 2m - 4) \le 3(n - 1)^2$.
+  \item If $m_1 = m_2$, then $\rt(\cA) \le \ell + (m - 1)(n + 2\ell + m - 2) \le 2(n - 1)^2$.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+Represent $E_1(a)$ via $P(t) = (\sum_{i=0}^{m_1-1} t^i)(\sum_{j=0}^{m_2-1} t^j)$ (max length $\ell + m - 2$; or $\ell + m/2 - 1$ when $m_1 = m_2$). Since $p_{12} + p_{21} \ge 1$, the convex combination
+\[
+  Q_b := \frac{p_{12} + p_{21} - 1}{p_{12} + p_{21}} E_1(a) + \frac{1}{p_{12} + p_{21}} E_1(a) P_b E_1(a)
+\]
+has nonnegative rational weights summing to $1$, maximum word length $L_1 = 2(\ell + m - 2) + 1$ (or $2(\ell + m/2 - 1) + 1$ when $m_1 = m_2$), and direct evaluation on $q \in B_1$ and $q \in B_2$ yields $Q_b = \one \cdot \frac{k_{21}\ind{C_1} + k_{12}\ind{C_2}}{k_{21}m_1 + k_{12}m_2} = \one \cdot \frac{1}{m}\ind{C}$ (using $k_{12} = k_{21} > 0$). Applying Lemma~\ref{lem:rank1}(3) with $w_{\mathrm{in}} = a^\ell$ and setting $t := n - m \ge \ell$ gives~(1) and~(2).
+\end{proof}
+
+\begin{theorem}[One-sided cyclic-basin lift for $c \ge 2$ equal cycles with trees $\ell \ge 0$]
+\label{thm:cyclic-basin}
+Let $\cA$ be a synchronizing $n$-state DFA equipped with a cyclic-basin structure for $(a, b)$ with $c \ge 2$ cycles of length $m_0 \ge 1$ ($m = c m_0$, $\ell \le n - m$, no strong connectivity). Then:
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item $\rt(\cA) \le \ell + (m - 2)(n - 1 + \ell + c + m_0 - 2) + (n - m + 1 + \ell) < 2(n - 1)^2$.
+  \item Whenever $m_0 \ge 2$, $2\,\rt(\cA) < 3(n - 1)^2$.
+  \item \emph{Exact \v{C}ern\'y conjecture:} $\rt(\cA) \le (n - 1)^2$ whenever $2m \le n$ (any $m_0 \ge 1$), OR whenever $m_0 \ge 2$ and $12m \le 7n$.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+For every $q \in B_i$, $q \cdot b^j \in B_{(i+j)\bmod c}$, so $(q \cdot b^j) \cdot a^{\ell + s}$ visits $C = \bigsqcup_{r=0}^{c-1} C_r$ uniformly as $(j, s)$ ranges over $\{0,\dots,c-1\} \times \{0,\dots,m_0 - 1\}$. Hence the uniform distribution over $\{b^j a^{\ell + s}\}$ has exact rank-$1$ matrix $\one \cdot \frac{1}{m}\ind{C}$ and maximum length $L_1 := \ell + c + m_0 - 2 \le n - 1$ (avoiding the left copy of $E_1(a)$ in Theorem~\ref{thm:mixing}!). Combining Lemma~\ref{lem:mc-start} ($|S_0| \ge 2$, $|w_{\mathrm{init}}| \le n - m + 1 + \ell$) with at most $m - 2$ applications of Lemma~\ref{lem:rank1}(1) and prepending $a^\ell$ yields the exact formula in~(1). Using $\ell \le n - m$ and $c + m_0 - 2 \le m - 1$ gives $\rt(\cA) \le (2n - 5)m - n + 5$, which is $< 2(n-1)^2$ for $m \le n$ and $\le (n-1)^2$ for $2m \le n$. When $m_0 \ge 2$, $(c-2)(m_0 - 2) \ge 0$ gives $2(c + m_0 - 2) \le m$, yielding $2\,\rt(\cA) \le -m^2 + (4n - 6)m - 2n + 6$; maximizing at $m = n$ gives $< 3(n-1)^2$, and at $m \le \frac{7}{12}n$ gives $288\,\rt(\cA) \le 287 n^2 - 792 n + 864 < 288(n-1)^2$ (for all $n \ge 7$, forced by $m \ge 4$).
+\end{proof}
+
+%======================================================================
+\section{Unbalanced Cycle-Drain, Partial-Drain, and Non-SC \texorpdfstring{$2$}{2}-Cycle Automata}
+\label{sec:drain-nonsc}
+
+When a $2$-cycle permutation automaton has severe unilateral drift ($k_{21}(b) \gg k_{12}(b) \ge 1$), such as the Kisielewicz--Szyku\l a family $\cA_{2m-1}$~\cite{KS2015} ($m_1 = m$, $m_2 = m - 1$, $k_{12}(b) = 1$, $k_{21}(b) = m - 1$), every opposite-drift or balanced word has length $\Omega(n^2)$ (since $k_{12}(w) - k_{21}(w) = |C_2 w^{-1}| - |C_2|$ and $C_2 b^{-1}$ collapses to a singleton), while Berlinkov's quasi-one-cluster bound~\cite{Berlinkov2013} is exponential $\Theta(2^{n/2} n^2)$. We resolve this regime via short words collapsing $Q$ into $C_1$.
+
+\begin{lemma}[Short-collapse cycle engine]
+\label{lem:collapse-engine}
+Let $\cA$ be a synchronizing $n$-state DFA (no strong connectivity assumed), $a \in \Sigma$, $C_1 \subseteq Q$ an $a$-cycle of length $m_1 := |C_1| \ge 2$, and $w_0 \in \Sigma^*$ a word of length $|w_0| \le L_0$ with $Q \cdot w_0 \subseteq C_1$. Then
+\begin{align*}
+  \rt(\cA) \le F_0(n, m_1, L_0) &:= L_0 + (m_1 - 2)(n - 1 + L_0 + m_1 - 1) + (n - m_1 + 1 + L_0) \\
+                                &= m_1 L_0 + m_1^2 + (n - 5)m_1 - n + 5.
+\end{align*}
+\end{lemma}
+\begin{proof}
+First, a direct analogue of Lemma~\ref{lem:mc-start} replacing $a^\ell$ by $w_0$ yields $q_0 \in C_1$ and $w_{\mathrm{init}}$ of length $\le n - m_1 + 1 + L_0$ with $|\{q_0\} w_{\mathrm{init}}^{-1} \cap C_1| \ge 2$ (if $w_0|_{C_1}$ is non-injective, $w_{\mathrm{init}} := w_0$ works directly; if bijective, the same $(m_1 - 1)$-dimensional $W_0 \subseteq H_{C_1}$ argument yields $|u| \le n - m_1 + 1$ and $w_{\mathrm{init}} := u w_0$). Second, the uniform distribution over $\{w_0 a^s : 0 \le s < m_1\}$ has maximum length $L_1 = L_0 + m_1 - 1$ and exact rank-$1$ matrix $\one \cdot \frac{1}{m_1}\ind{C_1}$. Iterating Lemma~\ref{lem:rank1}(1) at most $m_1 - 2$ times and prepending $w_0$ gives $F_0(n, m_1, L_0)$.
+\end{proof}
+
+\begin{theorem}[Full cycle-drain, exact $(n-1)^2$ partial drain, and small-$\gcd$ partial drain]
+\label{thm:drain}
+Let $\cA = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA (no strong connectivity, arbitrary alphabet $\Sigma$).
+\begin{enumerate}[label=(\alph*)]
+  \item \emph{Full cycle-drain (arbitrary multi-cluster/tree complement):} Suppose $a \in \Sigma$ has a tree-free $m_1$-cycle $C_1 \subsetneq Q$ ($2 \le m_1 < n$, $(Q \setminus C_1) \cdot a \subseteq Q \setminus C_1$), and $b \in \Sigma$ satisfies $(Q \setminus \{u_0\}) \cdot b \subseteq C_1$ for some $u_0 \in C_1$. Then there exists $w_0$ with $Q \cdot w_0 \subseteq C_1$ and $|w_0| \le n + 1$, giving
+  \[
+    \rt(\cA) \le m_1^2 + (2n - 4)m_1 - n + 5 \le 3n^2 - 9n + 10 < 3(n-1)^2.
+  \]
+  In particular: if $2m_1 \le n + 1$ (covering all Kisielewicz--Szyku\l a automata $\cA_{2m-1}$), then $\rt(\cA) \le \frac{5n^2 - 6n + 13}{4}$; and if $5m_1 \le 2n$ (or $m_1 \in \{1, n\}$), then $\rt(\cA) \le (n-1)^2$.
+
+  \item \emph{Partial cycle-drain ($2r m_1 < m_2$ --- exact $(n-1)^2$):} Suppose $a \in \Sigma$ is a $2$-cycle permutation ($Q = C_1 \sqcup C_2$, $m_1, m_2 \ge 2$), and $b \in \Sigma$ satisfies $k_{12}(b) \le 1$ and $r := |D_2| = m_2 - k_{21}(b) \ge 1$ where $D_2 := \{x \in C_2 : x \cdot b \in C_2\}$. If $2r m_1 < m_2$, then there exists $w_0$ with $Q \cdot w_0 \subseteq C_1$ and $|w_0| \le (\lfloor\log_2 r\rfloor + 1)(2r + 1) + m_2 + n$, yielding the \textbf{exact \v{C}ern\'y bound}
+  \[
+    \rt(\cA) \le (n - 1)^2.
+  \]
+
+  \item \emph{Small-$\gcd$ partial cycle-drain ($2r\gcd(m_1, m_2) < m_2$ --- removing $m_1$):} Under the $2$-cycle setup of~(b) with $m_1 \ge 2$, $k_{12}(b) \le 1$, $r \ge 1$, and $2r g < m_2$ where $g := \gcd(m_1, m_2)$, there exists $w_0$ with $Q \cdot w_0 \subseteq C_1$ and
+  \[
+    |w_0| \le 1 + (\lfloor \log_2 r \rfloor + 1)(2r + 1) + m_2 + (2r + 1)m_1.
+  \]
+  In particular, for $r = 1$ and $2\gcd(m_1, m_2) < m_2$ (including all coprime $(m_1, m_2)$ with $m_2 \ge 3$ and arbitrary $m_1 \ge 2$):
+  \[
+    \rt(\cA) \le 3m_1^2 + (2n - 1)m_1 - n + 5 \le 5n^2 - 26n + 35 < 5(n-1)^2,
+  \]
+  and whenever $m_1 \le m_2$, $4\,\rt(\cA) \le 7n^2 - 16n + 25$ and $\rt(\cA) < 2(n-1)^2$. For general $r \le \sqrt{n}$ with $2r g < m_2$, Lemma~\ref{lem:collapse-engine} yields an unconditional sub-cubic bound $\rt(\cA) = O(n^{5/2})$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+\emph{Part~(a).} Let $S := Q \cdot b \subseteq C_1 \cup \{u_0 \cdot b\}$ ($|S| \le m_1 + 1$). Note that for any $T \subseteq Q$ with $C_1 \not\subseteq T$, picking $z \in C_1 \setminus T$ and $0 \le s < m_1$ with $z \cdot a^s = u_0$ ensures $u_0 \notin T \cdot a^s$ (since $(Q \setminus C_1)\cdot a \subseteq Q \setminus C_1$ and $a|_{C_1}$ is bijective), whence $T \cdot a^s b \subseteq C_1$. If $C_1 \not\subseteq S$, $w_0 := b a^s b$ has length $\le m_1 + 1 \le n$. If $S = C_1$, take $w_0 := b$. Otherwise $S = C_1 \cup \{u_0 \cdot b\}$ has $|S| = m_1 + 1$; by Szyku\l a's avoiding-subset lemma~\cite{Szykula2018} (verified in \texttt{Cerny/AdditionalClasses.lean}), there exists $u \in \Sigma^*$ with $|u| \le n - m_1$ such that either $C_1 \not\subseteq S \cdot u$ (giving $w_0 := b u a^s b$ of length $\le 1 + (n - m_1) + (m_1 - 1) + 1 = n + 1$) or $|S \cdot u| \le m_1$ and $C_1 \subseteq S \cdot u$ (so $S \cdot u = C_1$ and $w_0 := b u$). Plugging $L_0 = n + 1$ into Lemma~\ref{lem:collapse-engine} yields $m_1^2 + (2n - 4)m_1 - n + 5$ and its three algebraic corollaries.
+
+\emph{Markov short-shift exponential $C_2$-halving (shared Step~1 of~(b) and~(c)).} Assume $k_{12}(b) \le 1$, $r \ge 1$, and $2r < m_2$. Set $w^{(0)} := b$ and $T_t := (Q \cdot w^{(t)}) \cap C_2$, so $|T_0| \le r + 1$. While $s := |T_t| \ge 2$, put $k := \lfloor (s - 1)/2 \rfloor$ (so $2(k+1) \ge s$) and $h(j) := |(T_t \cdot a^j) \cap D_2|$. Because $a$ cycles $C_2$, $\sum_{j=0}^{m_2-1} h(j) = s r$, so the set $B := \{j < m_2 : h(j) \ge k + 1\}$ satisfies $(k+1)|B| \le s r \le 2(k+1)r$, i.e., $|B| \le 2r < 2r + 1 \le m_2$. Thus some $j \in \{0, 1, \dots, 2r\}$ satisfies $h(j) \le k$, so $w^{(t+1)} := w^{(t)} a^j b$ adds length $\le 2r + 1$ and satisfies $|T_{t+1}| - 1 \le k = \lfloor (|T_t| - 1)/2 \rfloor$. After at most $\lfloor\log_2 r\rfloor + 1 \le r$ rounds we obtain $w_1$ with $|(Q \cdot w_1) \cap C_2| \le 1$ and
+\[
+  |w_1| \le 1 + (\lfloor \log_2 r \rfloor + 1)(2r + 1) \le 1 + r(2r + 1).
+\]
+
+\emph{Part~(b).} From $2r m_1 < m_2$ and $m_1 \ge 2$ we have $2r < m_2$. Starting from $S := Q \cdot w_1$ ($|S| \le m_1 + 1$), either $S \subseteq C_1$ or (after applying Szyku\l a's avoiding-subset lemma if $C_1 \subsetneq S$, adding $\le m_2$) we obtain $S' = Q \cdot v$ with $|S'| \le m_1 + 1$ and $a_1 := |S' \cap C_1| \le m_1 - 1$, $a_2 := |S' \cap C_2|$. Averaging $|(S' \cdot a^e b) \cap C_2| \le |(S' \cdot a^e) \cap U_{12}| + |(S' \cdot a^e) \cap D_2|$ over the Lemma~\ref{lem:opt-avg} exponents $e \le n - g - 1$ gives expectation $\le \frac{a_1}{m_1} + \frac{a_2 r}{m_2}$; since $a_1 \le m_1 - 1$, $a_1 + a_2 \le m_1 + 1$, and $2r m_1 < m_2$, the linear function $\frac{a_1}{m_1} + \frac{(m_1 + 1 - a_1)r}{m_2}$ is maximized at $a_1 = m_1 - 1$ with value $1 - \frac{1}{m_1} + \frac{2r}{m_2} < 1$. Hence some $e \le n - 2$ gives $S' \cdot a^e b \subseteq C_1$, yielding $|w_0| \le r(2r+1) + m_2 + n = r(2r+1) + 2n - m_1 =: L_0$. Substituting $L_0$ into Lemma~\ref{lem:collapse-engine} cancels $m_1^2$ identically:
+\[
+  F_0(n, m_1, L_0) = m_1 r(2r + 1) + (3n - 5)m_1 - n + 5.
+\]
+From $2r m_1 + 1 \le m_2 = n - m_1$ we have $(2r+1)m_1 \le n - 1$. If $r = 1$, then $3m_1 \le n - 1$ and $n \ge 7$, so $3((n-1)^2 - F_0) \ge 2n - 14 \ge 0$ (equality $36 = 36$ at $m_1 = 2, m_2 = 5$). If $r \ge 2$, then $m_1 r(2r+1) \le r(n-1)$, $4r \le n - 3$, $5m_1 \le n - 1$, and $n \ge 11$, giving $20((n-1)^2 - F_0) \ge (n-1)(3n+15) + 20(n-5) > 0$.
+
+\emph{Part~(c).} Let $q_2 := m_2 / g$; the condition $2r g < m_2$ says $2r + 1 \le q_2$. Since the additive order of $m_1$ in $\Z/m_2\Z$ is $q_2$, for any $y \in C_2$ and $e_1 \in \N$ the $2r + 1$ states $y \cdot a^{e_1 + t m_1}$ ($0 \le t \le 2r$) are pairwise distinct in $C_2$, so at most $|D_2| = r$ values of $t$ land in $D_2$. Starting from $S := Q \cdot w_1$ ($|S \cap C_2| \le 1$): if $S \cap C_2 = \emptyset$ we are done; if $S \cap C_2 = \{z\}$ and $k_{12} = 0$, rotating $z$ into $K_{21} = C_2 \setminus D_2$ adds $\le m_2$. Otherwise $U_{12} = \{u_0\}$:
+\begin{itemize}[nosep]
+  \item \emph{Subcase~A ($|S \cap C_1| \le m_1 - 1$):} pick $v_0 \in C_1 \setminus S$ and $e_1 < m_1$ with $v_0 \cdot a^{e_1} = u_0$. For all $0 \le t \le r$, $u_0 \notin (S \cap C_1) \cdot a^{e_1 + t m_1}$; by pigeonhole ($r + 1 > r$), some $t \le r$ puts $z \cdot a^{e_1 + t m_1} \in K_{21}$, giving $S \cdot a^{e_1 + t m_1} b \subseteq C_1$ in length $\le (r+1)m_1$.
+  \item \emph{Subcase~B ($C_1 \subseteq S$):} pick any $x_0 \in D_2$ ($r \ge 1$) and $j < m_2$ with $z \cdot a^j = x_0$, and set $S' := S \cdot a^j b$. Then $S' \cap C_1 = (C_1 \setminus \{u_0\}) \cdot b$ has size $\le m_1 - 1$ (so some $v_0 \in C_1 \setminus S'$ exists!) and $S' \cap C_2 \subseteq \{u_0 \cdot b, x_0 \cdot b\}$ has size $\le 2$. Picking $e_1 < m_1$ with $v_0 \cdot a^{e_1} = u_0$, the union bound over the $\le 2$ states of $S' \cap C_2$ eliminates at most $2r$ indices in $\{0, \dots, 2r\}$, so some $t \le 2r$ gives $S' \cdot a^{e_1 + t m_1} b \subseteq C_1$, adding length $\le m_2 + (2r+1)m_1$.
+\end{itemize}
+At $r = 1$, $L_0 = 4 + m_2 + 3m_1 = n + 2m_1 + 4$ gives $F_0(n, m_1, L_0) = 3m_1^2 + (2n-1)m_1 - n + 5$. Since $m_2 \ge 3$ ($m_1 \le n - 3$), this is $\le 5n^2 - 26n + 35 < 5(n-1)^2$; and if $m_1 \le m_2$ with $2g < m_2$, then $m_1 < m_2$ ($2m_1 \le n - 1$, $n \ge 5$), yielding $4 F_0 \le 7n^2 - 16n + 25 = 8(n-1)^2 - (n^2 - 17) < 8(n-1)^2$.
+\end{proof}
+
+\begin{theorem}[Exact $(n-1)^2$ for all non-strongly-connected $2$-cycle permutation DFAs]
+\label{thm:nonsc}
+Let $\cA = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA that is \emph{not strongly connected} and admits a $2$-cycle permutation letter $a \in \Sigma$ ($Q = C_1 \sqcup C_2$, $m_1, m_2 \ge 1$). Then (swapping $C_1, C_2$ if necessary so that $C_1$ is $\Sigma$-closed):
+\[
+  \rt(\cA) \le (m_1 - 1)^2 + m_2^2 - m_2 + 1 \le (n - 1)^2.
+\]
+\end{theorem}
+\begin{proof}
+Because $a$ acts transitively on $C_1$ and $C_2$, every $\Sigma$-closed subset of $Q$ is $\emptyset, C_1, C_2,$ or $Q$. Non-strong-connectivity yields a nonempty proper $\Sigma$-closed subset, say $C_1$. Synchronization forces some letter $b \in \Sigma$ with $k_{21}(b) \ge 1$. Starting at $S_0 := C_1$, we have $C_1 \subseteq C_1 b^{-1}$ and $|C_1 b^{-1}| \ge m_1 + 1$ (length $1$). Inductively, for any $S \subsetneq Q$ with $C_1 \subseteq S$ ($t := |S \cap C_2| < m_2$), every shift $0 \le j < m_2$ preserves $C_1 \subseteq (S a^{-j}) b^{-1}$, and averaging over $j$ gives
+\[
+  \frac{1}{m_2}\sum_{j=0}^{m_2-1} |(S a^{-j})b^{-1}| = m_1 + k_{21}(b) + (m_2 - k_{21}(b))\frac{t}{m_2} = |S| + k_{21}(b)\Bigl(1 - \frac{t}{m_2}\Bigr) > |S|.
+\]
+Thus at most $m_2 - 1$ steps of length $\le m_2$ reach $C_1 w_{\mathrm{col}}^{-1} = Q$ (i.e., $Q \cdot w_{\mathrm{col}} \subseteq C_1$) with $|w_{\mathrm{col}}| \le 1 + (m_2 - 1)m_2 = m_2^2 - m_2 + 1$. Restricting $\cA$ to the closed cycle $C_1$ gives a synchronizing circular $m_1$-state DFA, which by Dubuc's theorem (Theorem~\ref{thm:cb-equal} for $c = 1$) synchronizes in length $\le (m_1 - 1)^2$. Concatenating yields $(m_1 - 1)^2 + m_2^2 - m_2 + 1 = (n - 1)^2 - ((2m_1 - 1)m_2 - 1) \le (n - 1)^2$.
+\end{proof}
+
+\begin{remark}[Status of synchronizing $2$-cycle permutation automata]
+\label{rem:2cycle-taxonomy}
+Combining Theorems~\ref{thm:cb-general}, \ref{thm:opp-drift}(3), \ref{thm:drain}, and~\ref{thm:nonsc}, every synchronizing $2$-cycle permutation DFA is now unconditionally $O(n^2)$---and in most cases exact $(n-1)^2$---except the single remaining slice: strongly connected automata with unilateral drift ($k_{21}(g) \ge k_{12}(g)$ for all $g \in \Sigma$, strict for some $b$) having either $k_{12}(b) \ge 2$ or $2r \gcd(m_1, m_2) \ge m_2$ (with $r = \omega(\sqrt{n})$). Note also that the exact $2$-value cluster weight $\pi|_{C_1} \equiv K_{21}$, $\pi|_{C_2} \equiv K_{12}$ ($K_{ij} = \sum_{g \neq a} k_{ij}(g)$) is an exact stationary vector for the averaged length-$\le n-1$ operator $M_{\mathrm{avg}} U_a$, linking the remaining $2$-cycle frontier directly to Section~\ref{sec:stationary}.
+\end{remark}
+
+%======================================================================
+\section{Almost-Uniform, Two-Value Stationary Measures, and Super-Eulerian Automata}
+\label{sec:stationary}
+
+Let $\cA = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA ($n \ge 2$, finite $\Sigma$) admitting strictly positive real letter weights $\beta : \Sigma \to \R_{>0}$ ($\sum_{a \in \Sigma} \beta_a = 1$) and a strictly positive \emph{stationary vector} $\pi : Q \to \R_{>0}$:
+\begin{equation}
+  \forall q \in Q, \qquad \sum_{p \in Q} \pi(p) \sum_{\substack{a \in \Sigma \\ p \cdot a = q}} \beta_a = \pi(q).
+  \label{eq:stat}
+\end{equation}
+Write $\pi(S) := \sum_{q \in S} \pi(q)$. We first recall three foundational properties (all formalized in \texttt{Cerny/AlmostUniform.lean} and \texttt{Cerny/TwoValueStationary.lean}):
+\begin{enumerate}[label=(\roman*),nosep]
+  \item \emph{Automatic strong connectivity:} summing~\eqref{eq:stat} over any $\Sigma$-closed reachable set $R_p$ forces no edges to enter $R_p$ from $Q \setminus R_p$, so synchronization implies $R_p = Q$.
+  \item \emph{Exact fixed-length averaging and Steinberg step:} for every $k \in \N$ and $S \subseteq Q$, setting $W(w) := \prod_{i=1}^k \beta_{w_i} > 0$, we have $\sum_{w \in \Sigma^k} W(w)\,\pi(S w^{-1}) = \pi(S)$. Consequently, if $\pi(S u^{-1}) \neq \pi(S)$ for some $|u| = k$, then some $w \in \Sigma^k$ of the \emph{exact same length} $k$ satisfies $\pi(S w^{-1}) > \pi(S)$. Moreover, for every nonempty proper $S \subsetneq Q$, Steinberg's hyperplane escape argument on $H_\pi := \{v \in \R^Q : \sum_q \pi(q) v(q) = 0\}$ ($\dim_\R H_\pi = n - 1$) yields
+  \[
+    m_\pi(S) := \min\{|w| : \pi(S w^{-1}) \neq \pi(S)\} \le n - 1.
+  \]
+  \item \emph{Multi-state BFS entry and escape bounds:} for any nonempty $X \subsetneq Q$ ($k := |X|$) and nonempty proper $S \subsetneq Q$ ($r := |S \setminus X|$):
+  \begin{itemize}[nosep]
+    \item if $S \cap X = \emptyset$, there exists $u \in \Sigma^*$ with $1 \le |u| \le n - k - r + 1$ and $S u^{-1} \cap X \neq \emptyset$;
+    \item if $X \subseteq S$, there exists $u \in \Sigma^*$ with $1 \le |u| \le r + 1$ and $X \not\subseteq S u^{-1}$.
+  \end{itemize}
+  \emph{Proof:} Letting $R_t := \{x \cdot w : x \in X,\; |w| \le t\}$ ($|R_0| = k$), strong connectivity ensures $R_t$ grows strictly until hitting $S$ (inside $Q \setminus S$ of size $n - r$, giving $k + (t^* - 1) \le n - r$) or leaving $S$ (inside $S$ of size $r + k$, giving $k + (t^* - 1) \le r + k$).
+\end{enumerate}
+
+\subsection{Unified Two-Case Proof for Almost-Uniform Stationary Vectors and Berlinkov QE-1}
+
+Goel~\cite{Goel2026} recently proved~\eqref{eq:cerny} for almost-uniform stationary vectors via a four-case analysis with lose/gain step pairing. Below we present an independent, streamlined two-case proof over $\R$ requiring \emph{zero linear algebra} whenever $\alpha_0 \notin \Z$.
+
+\begin{theorem}[Almost-uniform stationary vectors and unconditional Berlinkov QE-1]
+\label{thm:almost-uniform}
+Let $\cA = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA ($n \ge 2$, finite $\Sigma$).
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item \emph{Almost-uniform stationary vector:} If $\cA$ admits positive real weights $\beta$ and stationary $\pi > 0$ constant on $Q \setminus \{x_0\}$ for some $x_0 \in Q$, then $\rt(\cA) \le (n - 1)^2$.
+  \item \emph{Unconditional Berlinkov QE-1 (no strong connectivity):} If there exist distinct $x_0, s \in Q$ and $\beta : \Sigma \to \R_{>0}$ ($\sum_a \beta_a = 1$) such that $x_0 \cdot a \in \{x_0, s\}$ for all $a \in \Sigma$ and $\sum_{p,a : p \cdot a = q} \beta_a = 1$ for all $q \notin \{x_0, s\}$, then $\rt(\cA) \le (n - 1)^2$.
+  \item \emph{Rational multi-exception corollary:} If $\pi(q) = p/q_0$ on $X$ ($1 \le k := |X| < n$, $p, q_0 \in \N_{>0}$) and $\pi(q) = 1$ on $Q \setminus X$, then $\rt(\cA) \le (q_0(n - k) + k p - \max(p, q_0))(n - 1)$; in particular, for $\pi|_X \equiv \frac{1}{2}$ and arbitrary $1 \le k < n$, $\rt(\cA) \le (2n - k - 2)(n - 1) < 2(n - 1)^2$.
+\end{enumerate}
+\end{theorem}
+\begin{proof}
+For~(1), rescale so $\pi(q) = 1$ ($q \neq x_0$) and $\pi(x_0) = \alpha_0 > 0$.
+\begin{itemize}[nosep]
+  \item \emph{Case~1 ($\alpha_0 = m \in \Z_{\ge 1}$):} Starting from $S_0 := \{x_0\}$ ($\pi(S_0) = m$, $\pi(Q) = n - 1 + m$), every Steinberg step of length $\le n - 1$ raises the integer $\pi(S)$ by at least $1$, reaching $Q$ in at most $n - 1$ steps ($\le (n-1)^2$).
+  \item \emph{Case~2 ($\alpha_0 \in (0, \infty) \setminus \Z$):} On $I := \{1, \dots, n - 1\} \times \{\mathrm{false}, \mathrm{true}\}$, define $\operatorname{val}(r, b) := r + (\alpha_0 - 1)\one_{b = \mathrm{true}}$, $\operatorname{cost}(r, \mathrm{true}) := r$, $\operatorname{cost}(r, \mathrm{false}) := n - r$, and the \emph{remaining-level budget potential}
+  \[
+    \Psi(S) := \sum_{\substack{(r, b) \in I \\ \operatorname{val}(r, b) \ge \pi(S)}} \operatorname{cost}(r, b) \in \N.
+  \]
+  For any nonempty proper $S \subsetneq Q$, put $\ell(S) := (|S|, [x_0 \in S]) \in I$. By property~(iii) with $X = \{x_0\}$, there exists $u$ of length $\le \operatorname{cost}(\ell(S))$ flipping the membership of $x_0$ in $S u^{-1}$; since $\alpha_0 \notin \Z$, one of $\pi(S), \pi(S u^{-1})$ is an integer and the other is not, so $\pi(S u^{-1}) \neq \pi(S)$. Property~(ii) then yields $w$ with $|w| \le \operatorname{cost}(\ell(S))$ and $\pi(S w^{-1}) > \pi(S)$, whence $\Psi(S w^{-1}) + |w| \le \Psi(S)$ (omitting $\ell(S)$). By induction on $\Psi(S)$, every nonempty $S_0$ reaches $Q$ in length $\le \Psi(S_0)$. Note $\sum_I \operatorname{cost} = n(n - 1)$. If $\alpha_0 > 1$, starting at $S_0 := \{x_0\}$ omits $(1, \mathrm{false})$ (cost $n - 1$), giving $(n - 1)^2$. If $0 < \alpha_0 < 1$, a non-injective letter $g$ yields $S_1 := \{q_0\}g^{-1}$ of size $\ge 2$, so $\pi(S_1) \ge 1 + \alpha_0 > 1 > \alpha_0$, omitting both $(1, \mathrm{true})$ and $(1, \mathrm{false})$ and giving $|w g| \le 1 + n(n-1) - 1 - (n-1) = (n-1)^2$.
+\end{itemize}
+For~(2), set $z := \sum_{x_0 \cdot a = x_0} \beta_a$ and $y := \sum_{p \neq x_0, a : p \cdot a = x_0} \beta_a$. If $z < 1$ and $y > 0$, $\pi(x_0) := y/(1 - z)$ and $\pi|_{Q \setminus \{x_0\}} \equiv 1$ satisfy~\eqref{eq:stat}, invoking~(1). If $z = 1$, $x_0$ is a sink, so inductively mapping the $n - 1$ states of $Q \setminus \{x_0\}$ to $x_0$ in $\le n - 1$ steps each gives $\le (n-1)^2$. If $z < 1$ and $y = 0$, $E := Q \setminus \{x_0\}$ is $\Sigma$-closed, some $b$ maps $Q \cdot b \subseteq E$, and $\cA|_E$ satisfies~(1) with $\alpha_0 = 1$, giving $\le 1 + (n-2)^2 \le (n-1)^2$. Part~(3) rescales to integer $\tilde{\pi} = q_0 \pi$ and starts at a state of weight $\max(p, q_0)$.
+\end{proof}
+
+\subsection{Two-Value Stationary Vectors over \texorpdfstring{$\R_{>0}$}{R>0} (Goel's Open Frontier~\#1)}
+
+\begin{theorem}[Two-value stationary vectors for $k = 2$ and general $k$ over all $\R_{>0}$]
+\label{thm:two-value}
+Let $\cA = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA admitting positive real weights $\beta$ and stationary $\pi > 0$ with $\pi(q) = \alpha_0 \in \R_{>0}$ on $X \subsetneq Q$ ($1 \le k := |X| \le n - 1$) and $\pi(q) = 1$ on $Q \setminus X$.
+\begin{enumerate}[label=(\alph*)]
+  \item \emph{Two exceptional states ($k = 2$, $n \ge 3$):}
+  \begin{itemize}[nosep]
+    \item If $\alpha_0 = m \in \Z_{\ge 1}$, then $2\,\rt(\cA) \le (3n - 4)(n - 1) < 3(n - 1)^2$.
+    \item If $\alpha_0 \in \R_{>0} \setminus \frac{1}{2}\Z$ (all irrational $\alpha_0$ and all rational denominators $\ge 3$), then $\rt(\cA) \le 2n^2 - 6n + 5 < 2(n - 1)^2$.
+    \item If $\alpha_0 \in \{\frac{1}{2}, \frac{3}{2}\}$, then $\rt(\cA) < 2(n - 1)^2$.
+    \item \emph{Universal bound for ALL $\alpha_0 \in \R_{>0}$:}
+    \[
+      14\,\rt(\cA) < 29(n - 1)^2 \qquad \Bigl(\rt(\cA) < \tfrac{29}{14}(n - 1)^2 \approx 2.0714\,(n-1)^2\Bigr).
+    \]
+  \end{itemize}
+  \item \emph{General multiplicity ($1 \le k \le n - 1$, $k' := \min(k, n - k)$):}
+  \begin{itemize}[nosep]
+    \item For ALL $\alpha_0 \in \R_{>0}$ (rational or irrational, zero denominator dependence):
+    \[
+      \rt(\cA) \le \bigl((k' + 1)(n - k' + 1) - 3\bigr)(n - 1).
+    \]
+    \item Whenever $2 \le k \le n - 1$ and $\alpha_0 \notin \bigcup_{d=1}^k \frac{1}{d}\Z$:
+    \[
+      \rt(\cA) \le (n - k + 1)(kn - 2k + 1) - (n - k) < k(n - k + 1)(n - 1).
+    \]
+    For irrational $\alpha_0 \in \R_{>0} \setminus \Q$ with $2 \le k \le n - 2$, rescaling by $\alpha_0^{-1}$ when $k > n/2$ replaces $k$ by $k' = \min(k, n - k)$.
+  \end{itemize}
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+Write $\pi(S) = r + j \alpha_0$ with $r := |S \setminus X| \in \{0, \dots, n - k\}$ and $j := |S \cap X| \in \{0, \dots, k\}$. As in Theorem~\ref{thm:almost-uniform}, assigning each achievable level $v < \pi(Q)$ an upper bound $\operatorname{cost}(v)$ on $\min\{|w| : \pi(S w^{-1}) > v\}$ for all $S$ with $\pi(S) = v$ yields $\rt(\cA) \le \Psi(S_0) := \sum_{v \ge \pi(S_0)} \operatorname{cost}(v)$.
+
+\emph{Part~(a) ($k = 2$, $n \ge 3$).}
+\begin{itemize}[nosep]
+  \item \emph{Case~1 ($\alpha_0 = m \in \Z_{\ge 1}$):} Start at $S_0 := \{x_1\}$ ($\pi(S_0) = m$). Achievable integer levels $\ge m$ lie in $A := \{m, \dots, n - 2 + m\}$ ($n - 1$ levels, Steinberg cost $\le n - 1$) and $B := \{\max(2m, n - 1 + m), \dots, n - 3 + 2m\}$. Every $S$ with $\pi(S) = v \in B$ necessarily has $j = 2$ and $r = v - 2m \le n - 3$; BFS escape (property~(iii)) gives $|u| \le r + 1$ with $j' \in \{0, 1\}$, forcing $\pi(S u^{-1}) \le n - 2 + m < v$ and hence cost $\le r + 1$. Summing gives $\Psi(S_0) \le (n-1)^2 + \sum_{r=0}^{n-3}(r+1) = \frac{(3n-4)(n-1)}{2}$.
+  \item \emph{Case~2 ($\alpha_0 \notin \frac{1}{2}\Z$):} Since $\alpha_0, 2\alpha_0 \notin \Z$, all pairs $(r, j) \in I := (\{0,\dots,n-2\} \times \{0,1,2\}) \setminus \{(0,0),(n-2,2)\}$ have distinct values $r + j\alpha_0$. By property~(iii), $j = 0$ has cost $\le n - 1 - r$ (since $j' \in \{1, 2\} \implies j'\alpha_0 \notin \Z$), $j = 2$ has cost $\le r + 1$ (since $j' \in \{0, 1\} \implies (2-j')\alpha_0 \notin \Z$), and $j = 1$ has Steinberg cost $\le n - 1$. The full sum over $I$ is $\frac{(n-2)(n-1)}{2} + \frac{(n-2)(n-1)}{2} + (n-1)^2 = (2n-3)(n-1)$. Starting at $\{x_1\}$ if $\alpha_0 > 1$ omits $(1,0)$ (cost $n-2$), giving $2n^2 - 6n + 5$; starting at $\{y_0\}$ ($y_0 \notin X$) if $\alpha_0 < 1$ omits $(0,1)$ (cost $n-1$), giving $2n^2 - 6n + 4$.
+  \item \emph{Case~3 ($\alpha_0 = m + \frac{1}{2}$, $m \ge 0$):} For $m = 0$, Theorem~\ref{thm:almost-uniform}(3) gives $(2n-4)(n-1) < 2(n-1)^2$. For $m \ge 1$, start at $S_0 := \{x_1\}$ ($\pi(S_0) = m + \frac{1}{2}$). The $n - 1$ half-integer levels ($j = 1$) each cost $\le n - 1$. Among integer levels $v \in \{m+1, \dots, n+2m-2\}$: if $v \le \min(n-2, 2m)$, $S$ has $j = 0$ and BFS entry ($|u| \le n - 1 - v$) lands in $j' = 1$ ($\notin \Z$) or $j' = 2$ ($\ge 2m+1 > v$), so $\operatorname{cost}(v) \le n - 1 - v$; if $v \ge \max(n-1, 2m+1)$, $S$ has $j = 2$ and BFS escape ($|u| \le v - 2m$) lands in $j' = 1$ ($\notin \Z$) or $j' = 0$ ($\le n-2 < v$), so $\operatorname{cost}(v) \le v - 2m$; on any overlap $v \in [2m+1, n-2]$ (nonempty iff $2m \le n - 3$), Steinberg gives $\operatorname{cost}(v) \le n - 1$. If $2m \ge n - 2$ (no overlap), $\Psi(S_0) \le (2n-3)(n-1) < 2(n-1)^2$. If $2m \le n - 3$, exact summation gives
+  \[
+    \Psi(S_0) = 2(n - 1)^2 - (n - 1) + m(n - 1) - \frac{7m^2 + 3m}{2}.
+  \]
+  At $m = 1$ ($\alpha_0 = \frac{3}{2}$), $\Psi(S_0) = 2(n-1)^2 - 5 < 2(n-1)^2$; and for every $m \ge 1$, the exact sum-of-squares identity
+  \[
+    29(n - 1)^2 - 14\,\Psi(S_0) = \bigl((n - 1) - 7m\bigr)^2 + 14(n - 1) + 21m > 0
+  \]
+  proves $14\,\rt(\cA) < 29(n - 1)^2$.
+\end{itemize}
+
+\emph{Part~(b) (general $k$).} For the universal bound, rescale by $\alpha_0^{-1}$ and swap $X \leftrightarrow Q \setminus X$ if $k > n - k$ so $|X| = k'$. There are at most $(k'+1)(n-k'+1) - 2$ distinct values of $\pi(S)$ on nonempty proper subsets; starting at $\{x_1\}$ ($\alpha_0 > 1$) or $\{y_0\}$ ($\alpha_0 < 1$) omits at least one value (while $\alpha_0 = 1$ gives $(n-1)^2$), leaving at most $(k'+1)(n-k'+1) - 3$ Steinberg steps of length $\le n - 1$. When $2 \le k < n$ and $\alpha_0 \notin \bigcup_{d=1}^k \frac{1}{d}\Z$, all pairs $(r, j)$ have distinct values, and property~(iii) bounds $j = 0$ by $n - k - r + 1$ and $j = k$ by $r + 1$, giving total sum $(n-k)(n-k+1) + (k-1)(n-k+1)(n-1) = (n-k+1)(kn - 2k + 1)$ minus at least $n - k$ omitted by the starting singleton ($\{x_1\}$ if $\alpha_0 > 1$ omits $(1,0)$ of cost $n-k$; $\{y_0\}$ if $\alpha_0 < 1$ omits $(0,1)$ of cost $n-1 \ge n-k$).
+\end{proof}
+
+\subsection{Matrix-Free Dual-Subspace Tier Lemma and Super-Eulerian Exact \texorpdfstring{$(n-1)^2$}{(n-1)\textasciicircum 2}}
+
+\begin{theorem}[Szyku\l a's tier lemma and Super-Eulerian exact $(n-1)^2$]
+\label{thm:tier}
+Let $\cA = (Q, \Sigma, \delta)$ be a synchronizing $n$-state DFA ($n \ge 2$, finite $\Sigma$) admitting positive real weights $\beta$ and stationary vector $\pi > 0$.
+\begin{enumerate}[label=(\arabic*),nosep]
+  \item \emph{Stationary-measure tier counting lemma (cf.~\cite{Szykula2026,Goel2026}):} For every integer $1 \le j \le n$,
+  \[
+    \#\bigl\{\, K \subsetneq Q \text{ nonempty} : \forall |w| \le n - j,\; \pi(K w^{-1}) = \pi(K) \,\bigr\} \le 2^j - 2.
+  \]
+  \item \emph{Master tier inequality for positive integer stationary vectors:} If $\pi : Q \to \Z_{\ge 1}$ is integer-valued with $J := \pi(Q) - \max_{q \in Q} \pi(q)$, then for every integer $1 \le t \le n$,
+  \[
+    \rt(\cA) \le J(n - t) + 2^{t+1} - 2t - 2.
+  \]
+  \item \emph{Exact \v{C}ern\'y bound for constant and logarithmic excess:} For every $E \ge 1$, if $J \le n - 1 + E$ and $n \ge 2^{E+3} - E^2 - 3E - 5$, then $\rt(\cA) \le (n - 1)^2$ (explicitly: $E = 1$ gives $\le n^2 - 3n + 8 \le (n-1)^2$ for $n \ge 7$, recovering~\cite[Cor.]{Goel2026}; $E = 2$ for $n \ge 17$; $E = 3$ for $n \ge 41$). Moreover, for logarithmic excess:
+  \[
+    n \ge 32 \quad\text{and}\quad J \le n + \lfloor\log_2 n\rfloor - 4 \implies \rt(\cA) \le (n - 1)^2.
+  \]
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+For~(1), define the row-vector subspaces $V_d := \operatorname{span}_\R\{\pi^\top P_w : |w| \le d\} \subseteq (\R^Q)^*$. Clearly $\dim V_0 = 1$, and $V_d = V_{d+1}$ implies $V_d = V_\infty := \operatorname{span}_\R\{\pi^\top P_w : w \in \Sigma^*\}$. Pick a reset word $w^*$ mapping $Q$ to $r_0$; by strong connectivity (property~(i)), for every $q \in Q$ pick $u_q$ with $r_0 \cdot u_q = q$, so $\pi^\top P_{w^* u_q} = \pi(Q) e_q^\top \in V_\infty$. Since $\pi(Q) > 0$, $V_\infty = (\R^Q)^*$, forcing $\dim V_d \ge \min(d + 1, n)$ for all $d \ge 0$. At $d := n - j$, $\dim V_{n-j} \ge n - j + 1$, so $W_j := (V_{n-j})^\perp \subseteq \R^Q$ has $\dim W_j \le j - 1$ and $U_j := W_j + \R\one$ has $\dim U_j \le j$. Every subset $K$ counted in~(1) satisfies $(\pi^\top P_w)(\ind{K}^\top - \frac{\pi(K)}{\pi(Q)}\one) = \pi(K w^{-1}) - \pi(K) = 0$ for all $|w| \le n - j$, hence $\ind{K}^\top \in U_j$.
+
+We claim that for \emph{any} affine translate $v_0 + U$ of an $r$-dimensional subspace $U \subseteq \R^Q$, $|(v_0 + U) \cap \{0, 1\}^Q| \le 2^r$. Indeed, $r = 0$ is trivial; for $r \ge 1$, pick $u \in U \setminus \{0\}$ and $q_0 \in Q$ with $u(q_0) \neq 0$, and let $U' := \{v \in U : v(q_0) = 0\}$ ($\dim U' = r - 1$). Each slice $\{v \in (v_0 + U) \cap \{0,1\}^Q : v(q_0) = b\}$ ($b \in \{0, 1\}$) is either empty or an affine translate of $U'$, contributing at most $2^{r-1}$ points by induction, for total $\le 2^r$. Applying this to $U_j$ ($\dim U_j \le j$) and removing the two distinct vectors $\mathbf{0} = \ind{\emptyset}^\top$ and $\one = \ind{Q}^\top$ in $U_j$ yields at most $2^j - 2$ nonempty proper subsets $K$.
+
+For~(2), starting from $S_0 := \{q_*\}$ maximizing $\pi(q_*)$ and taking minimum-length $\pi$-raising words $w_r$ ($|w_r| = m_\pi(S_r) \le n - 1$) visits $L \le J$ pairwise distinct nonempty proper subsets $S_0, \dots, S_{L-1}$. For every $c \in \{1, \dots, n - 1\}$ and $1 \le t \le n$, we have $c \le (n - t) + \sum_{j=2}^t \one_{c \ge n - j + 1}$. Summing over $r < L$, swapping sums, and applying~(1) yields
+\[
+  \rt(\cA) \le \sum_{r=0}^{L-1} m_\pi(S_r) \le L(n - t) + \sum_{j=2}^t (2^j - 2) \le J(n - t) + 2^{t+1} - 2t - 2.
+\]
+For~(3), setting $t := E + 2$ gives $(n - 1 + E)(n - E - 2) + 2^{E+3} - 2E - 6 = (n - 1)^2 - n + (2^{E+3} - E^2 - 3E - 5) \le (n - 1)^2$. For $n \ge 32$, setting $t := \lfloor\log_2 n\rfloor - 1 \in [4, n]$ gives $2^{t+1} \le n$ and $(n + t - 3)(n - t) + n - 2t - 2 = (n - 1)^2 - (t^2 - t + 3) < (n - 1)^2$.
+\end{proof}
+
+%======================================================================
+\section{Formalization of One-Cluster Automata and Classical Foundations}
+\label{sec:onecluster}
+
+Alongside Theorems~\ref{thm:cb-equal}--\ref{thm:tier}, our Lean~4 library contains a complete, independent formalization of Yinfeng Zhu's July~2026 resolution of the \v{C}ern\'y conjecture for one-cluster automata~\cite{Zhu2026}, together with classical foundational theorems used throughout the proofs above:
+\begin{itemize}[nosep]
+  \item \emph{One-cluster automata (\texttt{Cerny/OneCluster.lean}, 4{,}214 lines):} A DFA $\cA$ is \emph{one-cluster} (\texttt{DFA.IsOneCluster}) if some letter $a \in \Sigma$ admits a nonempty $a$-invariant transitive cycle $C \subseteq Q$ ($m := |C|$) entered by every state in at most $\ell$ steps. We formalize Zhu's short relative extension theorem ($|w| \le n$ with $|S(w a^\ell)^{-1} \cap C| > |S|$, \texttt{oneCluster\us short\us relative\us extension}), the sharp reset threshold bound $(m - 1)(n - 1) + m\ell$ (\texttt{oneCluster\us reset\us bound}), and the full \v{C}ern\'y bound $\rt(\cA) \le (n - 1)^2$ (\texttt{oneCluster\us cerny}, \texttt{oneCluster\us resetThreshold\us le}) for arbitrary alphabets~$\Sigma$. To streamline formal verification without invoking the polynomial Chinese Remainder Theorem, the Fitting and spectral projectors are constructed explicitly via $E_R := T^{m\ell}$, $E_N := I - T^{m\ell}$, and $E_\lambda := \frac{1}{m}\sum_{j=0}^{m-1} \lambda^{-j} T^{m\ell + j}$.
+  \item \emph{Classical foundations:} Kari's Eulerian theorem~\cite{Kari2003} ($\rt(\cA) \le (n-1)(n-2)+1 \le (n-1)^2$, \texttt{Cerny/Eulerian.lean}); Dubuc's circular theorem~\cite{Dubuc1998} (\texttt{Cerny/Circular.lean}); \v{C}ern\'y's exact lower bound~\cite{Cerny1964} $\rt(\cC_n) = (n-1)^2$ and the refined bound $(n-1)^2 + q_0$ for words resetting to state $q_0$ (\texttt{Cerny/LowerBound.lean}); and purely structural proofs (with zero brute-force enumeration or \texttt{native\us decide}) of the \v{C}ern\'y conjecture for all $n \le 4$ over arbitrary alphabets (\texttt{Cerny/SmallCases.lean}).
+\end{itemize}
+
+%======================================================================
+\section{Formalization Methodology and Theorem-to-Lean Correspondence}
+\label{sec:formalization}
+
+All mathematical theorems stated in Sections~\ref{sec:cluster-balanced}--\ref{sec:onecluster} have been formally verified in Lean~4.36.0 with Mathlib~v4.36.0 under strict compiler flags (\texttt{autoImplicit = false}, \texttt{relaxedAutoImplicit = false}). The full companion repository---publicly available at \url{https://github.com/antonborisov571/cerny-lean}---comprises 31 Lean~4 files (28 mathematical modules totaling 39{,}978 lines; 40{,}840 total lines including \texttt{Cerny.lean}, \texttt{Cerny/Verification.lean}, and \texttt{Cerny/StatementCheck.lean}), builds cleanly with zero errors and zero warnings, contains zero occurrences of \texttt{sorry}, \texttt{admit}, \texttt{native\_decide}, \texttt{unsafe}, \texttt{partial}, or custom axioms, and passes \texttt{\#print axioms} checks across all 220 exported declarations confirming that every theorem depends solely on Lean's standard axioms (\texttt{propext}, \texttt{Classical.choice}, \texttt{Quot.sound}). In addition, the standalone statement-audit module \texttt{Cerny/StatementCheck.lean} restates 44 headline theorems directly in terms of core definitions (including five raw \texttt{List.foldl} formulations with zero custom definitions) and passes independent kernel replay via \texttt{lake env leanchecker Cerny.StatementCheck} with exit status~0.
+
+Mathematical discovery and Lean~4 proof engineering were conducted with AI assistance; every proof step is verified mechanically by the Lean~4 kernel, and all non-formalized commentary (specifically Remarks~\ref{rem:obstructions} and~\ref{rem:2cycle-taxonomy}) is explicitly separated from proved theorems. Table~\ref{tab:correspondence} records the exact correspondence between the results in this paper and their Lean~4 declarations (all in namespace \texttt{Cerny}).
+
+\begin{table}[tbp]
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.22}
+\begin{tabular}{@{} >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{3.6cm} >{\raggedright\arraybackslash}p{9.1cm} @{}}
+\toprule
+\textbf{Paper Result} & \textbf{Lean File} & \textbf{Verified Declaration Name(s)} \\
+\midrule
+Thm.~\ref{thm:cb-equal} & \texttt{ClusterBalanced.lean}, \texttt{Circular.lean} & \texttt{clusterBalanced\us equalCycle\us cerny}, \texttt{clusterBalanced\us equalCycle\us exists\us extending\us word}, \texttt{circular\us cerny}, \texttt{circular\us resetThreshold\us le} \\
+Thm.~\ref{thm:cb-general} & \texttt{ClusterBalanced.lean} & \texttt{clusterBalanced\us reset\us bound}, \texttt{clusterBalanced\us quadratic\us bound} \\
+Lem.~\ref{lem:opt-avg}, Thm.~\ref{thm:opp-drift} & \texttt{AlpogeOppositeDrift.lean} & \texttt{optimal\us twoCluster\us avg}, \texttt{twoCluster\us oppositeDrift\us extend}, \texttt{twoCluster\us fluxWitness\us reset\us bound\us general}, \texttt{twoCluster\us fluxWitness\us reset\us bound}, \texttt{twoCluster\us fluxWitness\us quadratic\us bound}, \texttt{twoCluster\us fluxWitness\us halfCycle\us cerny}, \texttt{twoCluster\us equalCycle\us fluxWitness\us bound}, \texttt{twoCluster\us equalCycle\us fluxWitness\us sevenTwelfths\us cerny}, \texttt{twoCluster\us oppositeDrift\us cerny}, \texttt{twoCluster\us oppositeDrift\us ge\us six\us bound} \\
+Lem.~\ref{lem:rank1}, Thm.~\ref{thm:mixing} & \texttt{AlpogeThetaLift.lean} & \texttt{rankOne\us exists\us extending\us word}, \texttt{rankOne\us exists\us extending\us word\us ne\us half}, \texttt{rankOne\us uniform\us reset\us bound}, \texttt{twoCluster\us mixing\us reset\us bound}, \texttt{twoCluster\us mixing\us quadratic\us bound}, \texttt{twoCluster\us equalCycle\us mixing\us bound} \\
+Lem.~\ref{lem:mc-start}, Thm.~\ref{thm:cyclic-basin} & \texttt{AlpogeCyclicBasin.lean} & \texttt{multiCluster\us singleton\us start}, \texttt{cyclicBasin\us reset\us bound}, \texttt{cyclicBasin\us quadratic\us bound}, \texttt{cyclicBasin\us threeHalves\us bound}, \texttt{cyclicBasin\us halfCycle\us cerny}, \texttt{cyclicBasin\us sevenTwelfths\us cerny} \\
+Lem.~\ref{lem:collapse-engine}, Thm.~\ref{thm:drain}(a) & \texttt{AlpogeCycleDrain.lean} & \texttt{collapseWord\us singleton\us start}, \texttt{shortCollapse\us cycle\us reset\us bound}, \texttt{cycleDrain\us exists\us collapseWord}, \texttt{cycleDrain\us reset\us bound}, \texttt{cycleDrain\us quadratic\us bound}, \texttt{cycleDrain\us ks\us regime\us bound}, \texttt{cycleDrain\us twoFifths\us cerny}, \texttt{cycleDrain\us card\us one\us cerny}, \texttt{cycleDrain\us full\us cerny} \\
+Thm.~\ref{thm:drain}(b,c) & \texttt{PartialDrainExact.lean} (\& \texttt{AlpogePartialDrain.lean}) & \texttt{shortShift\us exp\us halving}, \texttt{partialDrain\us exp\us collapseWord}, \texttt{partialDrain\us all\us exact\us cerny}, \texttt{smallGcd\us collapseWord}, \texttt{smallGcd\us reset\us bound}, \texttt{smallGcd\us r1\us reset\us bound}, \texttt{smallGcd\us r1\us five\us bound}, \texttt{smallGcd\us r1\us le\us half\us bound} \\
+Thm.~\ref{thm:nonsc} & \texttt{TwoCycleNonSC.lean} & \texttt{nonSC\us twoCycle\us closed\us cycle}, \texttt{closedCycle\us collapse\us bound}, \texttt{twoCycle\us closed\us exact\us bound}, \texttt{twoCycle\us nonSC\us cerny} \\
+Thm.~\ref{thm:almost-uniform} & \texttt{AlmostUniform.lean} & \texttt{positiveStationary\us stronglyConnected}, \texttt{positiveStationary\us word\us avg}, \texttt{stronglyConnected\us escape\us entry}, \texttt{almostUniform\us cerny}, \texttt{berlinkov\us qe1\us cerny}, \texttt{multiException\us rational\us bound}, \texttt{multiException\us half\us bound} \\
+Thm.~\ref{thm:two-value} & \texttt{TwoValueStationary.lean} & \texttt{subset\us bfs\us entry}, \texttt{subset\us bfs\us escape}, \texttt{twoValue\us k2\us int\us bound}, \texttt{twoValue\us k2\us nonHalfInt\us bound}, \texttt{twoValue\us k2\us threeHalves\us bound}, \texttt{twoValue\us k2\us universal\us bound}, \texttt{twoValue\us general\us k\us bound}, \texttt{twoValue\us general\us k\us nonSmallDenom\us bound}, \texttt{twoValue\us general\us k\us irrational\us bound} \\
+Thm.~\ref{thm:tier} & \texttt{TwoValueStationary.lean} & \texttt{szykula\us tier\us lemma}, \texttt{superEulerian\us tier\us bound}, \texttt{superEulerian\us const\us excess\us cerny}, \texttt{superEulerian\us excess\us one\us cerny}, \texttt{superEulerian\us excess\us two\us cerny}, \texttt{superEulerian\us excess\us three\us cerny}, \texttt{superEulerian\us log\us excess\us cerny} \\
+Sec.~\ref{sec:onecluster} & \texttt{OneCluster.lean}, \texttt{Eulerian.lean}, \texttt{LowerBound.lean}, \texttt{SmallCases.lean} & \texttt{oneCluster\us short\us relative\us extension}, \texttt{oneCluster\us reset\us bound}, \texttt{oneCluster\us cerny}, \texttt{oneCluster\us resetThreshold\us le}, \texttt{eulerian\us reset\us bound}, \texttt{eulerian\us cerny}, \texttt{cernyDFA\us resetThreshold}, \texttt{cerny\us card\us le\us four} \\
+\bottomrule
+\end{tabular}
+\caption{Complete Theorem-to-Lean~4 correspondence (all declarations in \texttt{namespace Cerny}).}
+\label{tab:correspondence}
+\end{table}
+
+\begin{thebibliography}{99}
+
+\bibitem{BBP2011}
+M.-P.~B\'eal, M.~V.~Berlinkov, and D.~Perrin, \emph{A quadratic upper bound on the size of a synchronizing word in one-cluster automata}, Internat. J. Found. Comput. Sci. \textbf{22}(2) (2011), 277--288.
+
+\bibitem{Berlinkov2012}
+M.~V.~Berlinkov, \emph{Synchronizing automata on quasi-Eulerian digraphs}, in: CIAA 2012, Lecture Notes in Comput. Sci. \textbf{7381}, Springer (2012), 90--100; arXiv:1203.3402.
+
+\bibitem{Berlinkov2013}
+M.~V.~Berlinkov, \emph{Synchronizing quasi-Eulerian and quasi-one-cluster automata}, Internat. J. Found. Comput. Sci. \textbf{24}(6) (2013), 729--745.
+
+\bibitem{Cerny1964}
+J.~\v{C}ern\'y, \emph{Pozn\'amka k homog\'ennym experimentom s kone\v{c}n\'ymi automatmi}, Mat.-Fyz. \v{C}asopis Sloven. Akad. Vied \textbf{14}(3) (1964), 208--216. English translation: J. Autom. Lang. Comb. \textbf{24}(2--4) (2019), 123--132.
+
+\bibitem{Dubuc1998}
+L.~Dubuc, \emph{Sur les automates circulaires et la conjecture de \v{C}ern\'y}, RAIRO Inform. Th\'eor. Appl. \textbf{32}(1--3) (1998), 21--34.
+
+\bibitem{Frankl1982}
+P.~Frankl, \emph{An extremal problem for two families of sets}, European J. Combin. \textbf{3}(2) (1982), 125--127.
+
+\bibitem{Goel2026}
+D.~Goel, \emph{The \v{C}ern\'y (1969) conjecture holds for quasi-Eulerian automata of degree one}, preprint, Hexagon 2611.00635v1 (Nov.\ 2026), \url{https://hexagonmath.org/abs/2611.00635}.
+
+\bibitem{Hong2026a}
+S.~Hong, \emph{Degree transport and a smaller cubic coefficient for reset thresholds}, preprint, Hexagon 2611.00172v1 (Nov.\ 2026), \url{https://hexagonmath.org/abs/2611.00172}.
+
+\bibitem{Hong2026b}
+S.~Hong, \emph{A uniform $7/48$ cubic upper bound for reset thresholds}, preprint, Hexagon 2611.00506v1 (Nov.\ 2026), \url{https://hexagonmath.org/abs/2611.00506}.
+
+\bibitem{Kari2003}
+J.~Kari, \emph{Synchronizing finite automata on Eulerian digraphs}, Theoret. Comput. Sci. \textbf{295}(1--3) (2003), 223--232.
+
+\bibitem{KS2015}
+A.~Kisielewicz and M.~Szyku\l a, \emph{Synchronizing automata with extremal properties}, in: MFCS 2015, Lecture Notes in Comput. Sci. \textbf{9234}, Springer (2015), 331--343; arXiv:1608.01268.
+
+\bibitem{Pin1983}
+J.-E.~Pin, \emph{On two combinatorial problems arising from automata theory}, in: Combinatorial Mathematics, North-Holland Math. Stud. \textbf{75} (1983), 535--548.
+
+\bibitem{Shitov2019}
+Y.~Shitov, \emph{An improvement to a recent upper bound for synchronizing words of finite automata}, J. Autom. Lang. Comb. \textbf{24}(2--4) (2019), 367--373; arXiv:1901.06542.
+
+\bibitem{Starke1966}
+P.~H.~Starke, \emph{Eine Bemerkung \"uber homogene Experimente}, Elektron. Informationsverarb. Kybernet. \textbf{2}(4) (1966), 257--259.
+
+\bibitem{Steinberg2011}
+B.~Steinberg, \emph{The averaging trick and the \v{C}ern\'y conjecture}, Internat. J. Found. Comput. Sci. \textbf{22}(7) (2011), 1697--1706.
+
+\bibitem{Szykula2018}
+M.~Szyku\l a, \emph{Improving the upper bound on the length of the shortest reset word}, in: STACS 2018, LIPIcs \textbf{96} (2018), 56:1--56:13; arXiv:1702.05455.
+
+\bibitem{Szykula2026}
+M.~Szyku\l a, \emph{Synchronizing automata: open problems}, in: AFL 2026, EPTCS \textbf{451} (2026), 33--47; arXiv:2608.24245.
+
+\bibitem{Volkov2022}
+M.~V.~Volkov, \emph{Synchronization of finite automata}, Russian Math. Surveys \textbf{77}(5) (2022), 819--891.
+
+\bibitem{Volkov2026}
+M.~V.~Volkov, \emph{List of results on the \v{C}ern\'y conjecture and reset thresholds for synchronizing automata}, living survey, arXiv:2508.15655v4 (2026).
+
+\bibitem{Zhu2026}
+Y.~Zhu, \emph{The \v{C}ern\'y conjecture for one-cluster automata via annular spectral descent}, preprint, arXiv:2607.19675 (2026).
+
+\end{thebibliography}
+
+\end{document}

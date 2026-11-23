@@ -1,0 +1,32 @@
+# Lean / Lake build artifacts
+.lake/
+
+# Python cache
+scripts/__pycache__/
+__pycache__/
+*.py[cod]
+
+# LaTeX build artifacts (keep papers/*/*.tex and papers/*/*.pdf)
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.nav
+*.snm
+*.vrb
+*.lof
+*.lot
+*.idx
+*.ilg
+*.ind
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.tmp
+*~
